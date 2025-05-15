@@ -19,7 +19,7 @@ jobs:
       # Save service account key from secret
       - name: Save Service Account Key
         run: |
-          echo "${{ secrets.GCP_SA_KEY }}" | base64 -d > ./sa-liquibase.json
+          echo "${{ secrets.GCP_SA_KEY }}" > ./sa-liquibase.json
         shell: bash
 
       # Run Liquibase Status Action
