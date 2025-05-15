@@ -33,6 +33,7 @@ jobs:
           searchPath: sql
           classpath: lib/spanner-jdbc-driver.jar
           contextFilter: ${{ inputs.app_env }}
+          logLevel: debug
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ./sa-liquibase.json
 
