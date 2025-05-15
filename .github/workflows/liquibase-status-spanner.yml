@@ -29,7 +29,7 @@ jobs:
         with:
           changelogFile: sql/changelog-root.xml
           url: jdbc:cloudspanner:/projects/${{ vars.GCP_PROJECT_ID }}/instances/b2b-dev01/databases/test_liquibase?credentials=/github/workspace/sa-liquibase.json
-          driver: com.google.cloud.spanner.jdbc.JdbcDriver
+          driver: "com.google.cloud.spanner.jdbc.JdbcDriver"
           searchPath: sql
           contextFilter: ${{ inputs.app_env }}
         env:
