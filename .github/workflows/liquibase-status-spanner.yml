@@ -1,0 +1,86 @@
+name: Test Liquibase Status with Cloud Spanner
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_env:
+        description: 'Environment (dev, stage, prod-c)'
+        default: 'dev'
+        required: true
+
+jobs:
+  test-liquibase-status:
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout repository to access changelog
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # Save service account key from secret
+      - name: Save Service Account Key
+        run: |
+          echo "${{ secrets.GCP_SA_KEY }}" | base64 -d > ./sa-liquibase.json
+        shell: bash
+
+      # Run Liquibase Status Action
+      - name: Liquibase Status Action
+        id: liquibase_status
+        uses: liquibase-github-actions/status@v4.31.1
+        with:
+          changelogFile: sql/changelog-root.xml
+          url: jdbc:cloudspanner:/projects/${{ vars.GCP_PROJECT_ID }}/instances/b2b-dev01/databases/test_liquibase?credentials=/github/workspace/sa-liquibase.json
+          driver: com.google.cloud.spanner.jdbc.JdbcDriver
+          searchPath: sql
+          contextFilter: ${{ inputs.app_env }}
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ./sa-liquibase.json
+
+      # Debug Outputs
+      - name: Debug Liquibase Status Outputs
+        run: |
+          echo "Available outputs:"
+          echo "${{ toJSON(steps.liquibase_status.outputs) }}"
+          echo "Changesets output:"
+          echo "${{ steps.liquibase_status.outputs.changesets }}"
+        shell: bash
+
+      # Parse Status Output (Fallback if changesets is undefined)
+      - name: Parse Liquibase Status
+        id: parse_status
+        run: |
+          # Try using changesets if available
+          if [[ -n "${{ steps.liquibase_status.outputs.changesets }}" ]]; then
+            echo "Using changesets output: ${{ steps.liquibase_status.outputs.changesets }}"
+            echo "CHANGESETS=${{ steps.liquibase_status.outputs.changesets }}" >> $GITHUB_ENV
+          else
+            echo "No changesets output, falling back to CLI"
+            docker run --rm \
+              -v "${{ github.workspace }}:/liquibase" \
+              -e GOOGLE_APPLICATION_CREDENTIALS=/liquibase/sa-liquibase.json \
+              liquibase/liquibase:4.31.1 \
+              status \
+              --changelog-file=sql/changelog-root.xml \
+              --url=jdbc:cloudspanner:/projects/${{ vars.GCP_PROJECT_ID }}/instances/b2b-dev01/databases/test_liquibase?credentials=/liquibase/sa-liquibase.json \
+              --driver=com.google.cloud.spanner.jdbc.JdbcDriver \
+              --search-path=/liquibase/sql \
+              --context-filter=${{ inputs.app_env }} \
+              > liquibase_status_output.txt || true
+            if grep -q "is up to date" liquibase_status_output.txt; then
+              echo "CHANGESETS=0" >> $GITHUB_ENV
+            else
+              CHANGESETS=$(grep -o '[0-9]\+ change sets have not been applied' liquibase_status_output.txt | grep -o '[0-9]\+' || echo "0")
+              echo "CHANGESETS=$CHANGESETS" >> $GITHUB_ENV
+            fi
+          fi
+          echo "Database has $CHANGESETS pending changesets"
+        shell: bash
+
+      # Use the Result
+      - name: Check Database Status
+        run: |
+          if [[ "${{ env.CHANGESETS }}" == "0" ]]; then
+            echo "Database is up to date, no migration needed."
+          else
+            echo "Database has ${{ env.CHANGESETS }} pending changesets, migration required."
+          fi
+        shell: bash
