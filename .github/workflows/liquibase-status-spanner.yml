@@ -31,6 +31,7 @@ jobs:
           url: jdbc:cloudspanner:/projects/${{ vars.GCP_PROJECT_ID }}/instances/demo/databases/demo_liquibase?credentials=/github/workspace/sa-liquibase.json
           driver: "com.google.cloud.spanner.jdbc.JdbcDriver"
           searchPath: sql
+          classpath: lib/spanner-jdbc-driver.jar
           contextFilter: ${{ inputs.app_env }}
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ./sa-liquibase.json
