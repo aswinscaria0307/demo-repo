@@ -140,7 +140,7 @@ jobs:
           echo "Listing all JARs in m2-repository before Liquibase:"
           find ${{ env.WORKSPACE }}/m2-repository -type f -name "*.jar" -ls || echo "No JARs found in m2-repository"
           echo "Classpath to be used:"
-          echo "/github/workspace/m2-repository/*.jar"
+          echo "/github/workspace/m2-repository/google-cloud-spanner-jdbc-2.5.7.jar:/github/workspace/m2-repository/google-cloud-spanner-1.50.0.jar:/github/workspace/m2-repository/guava-30.1.1-jre.jar:/github/workspace/m2-repository/protobuf-java-3.25.5.jar:/github/workspace/m2-repository/protobuf-java-util-3.25.5.jar:/github/workspace/m2-repository/grpc-protobuf-1.43.2.jar:/github/workspace/m2-repository/grpc-stub-1.43.2.jar:/github/workspace/m2-repository/grpc-netty-shaded-1.43.2.jar:/github/workspace/m2-repository/grpc-core-1.43.2.jar:/github/workspace/m2-repository/google-cloud-core-grpc-2.3.5.jar"
         shell: bash
 
       - name: Debug Docker Mount
@@ -167,7 +167,7 @@ jobs:
           url: ${{ env.JDBC_URL }}
           driver: com.google.cloud.spanner.jdbc.JdbcDriver
           searchPath: ${{ env.SEARCH_PATH }}
-          classpath: /github/workspace/m2-repository/*.jar
+          classpath: /github/workspace/m2-repository/google-cloud-spanner-jdbc-2.5.7.jar:/github/workspace/m2-repository/google-cloud-spanner-1.50.0.jar:/github/workspace/m2-repository/guava-30.1.1-jre.jar:/github/workspace/m2-repository/protobuf-java-3.25.5.jar:/github/workspace/m2-repository/protobuf-java-util-3.25.5.jar:/github/workspace/m2-repository/grpc-protobuf-1.43.2.jar:/github/workspace/m2-repository/grpc-stub-1.43.2.jar:/github/workspace/m2-repository/grpc-netty-shaded-1.43.2.jar:/github/workspace/m2-repository/grpc-core-1.43.2.jar:/github/workspace/m2-repository/google-cloud-core-grpc-2.3.5.jar
           contextFilter: ${{ inputs.app_env }}
           logLevel: debug
         env:
