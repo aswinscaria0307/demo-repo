@@ -125,10 +125,10 @@ jobs:
             "grpc-netty-shaded-1.43.2.jar" \
             "grpc-core-1.43.2.jar" \
             "grpc-api-1.43.2.jar" \
-            "opencensus-api-0.28.0.jar" \
-            "proto-google-cloud-spanner-v1-1.50.0.jar" \
-            "proto-google-cloud-spanner-admin-database-v1-1.50.0.jar" \
-            "error_prone_annotations-2.3.4.jar"; do
+            "opencensus-api-0.30.0.jar" \
+            "proto-google-cloud-spanner-v1-6.17.3.jar" \
+            "proto-google-cloud-spanner-admin-database-v1-6.17.3.jar" \
+            "error_prone_annotations-2.10.0.jar"; do
             if [ -f "${{ env.WORKSPACE }}/m2-repository/$jar" ]; then
               echo "$jar found"
             else
