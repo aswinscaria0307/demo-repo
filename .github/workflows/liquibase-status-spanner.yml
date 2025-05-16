@@ -1,4 +1,4 @@
-name: Test Liquibase Status with Cloud Spanner
+name: Liquibase Status with Spanner (Minimal)
 
 on:
   workflow_dispatch:
@@ -10,99 +10,53 @@ on:
 
 env:
   CHANGE_LOG_FILE: sql/changelog-root.xml
-  JDBC_URL: jdbc:cloudspanner:/projects/${{ vars.GCP_PROJECT_ID }}/instances/demo/databases/demo_liquibase?credentials=/home/runner/work/demo-repo/demo-repo/sa-liquibase.json
+  JDBC_URL: jdbc:cloudspanner:/projects/${{ vars.GCP_PROJECT_ID }}/instances/demo/databases/demo_liquibase?credentials=${{ github.workspace }}/sa-liquibase.json
   SEARCH_PATH: sql
-  WORKSPACE: /home/runner/work/demo-repo/demo-repo
+  WORKSPACE: ${{ github.workspace }}
 
 jobs:
   test-liquibase-status:
     runs-on: ubuntu-latest
+
     steps:
-      # Checkout repository to access changelog and pom.xml
       - name: Checkout Repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
 
-      # Debug checkout and repository contents
-      - name: Debug Checkout and Repository Contents
-        run: |
-          echo "Current working directory:"
-          pwd
-          echo "Listing files in $WORKSPACE:"
-          ls -la $WORKSPACE
-          echo "Checking for pom.xml:"
-          ls -l $WORKSPACE/pom.xml || echo "pom.xml not found"
-          echo "Checking for sql/changelog-root.xml:"
-          ls -l $WORKSPACE/$CHANGE_LOG_FILE || echo "changelog-root.xml not found"
-        shell: bash
-
-      # Set up Java
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      # Cache Maven dependencies
       - name: Cache Maven Dependencies
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('pom.xml') }}-v2
+          key: ${{ runner.os }}-maven-${{ hashFiles('pom.xml') }}-v1
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      # Resolve Maven dependencies as fallback
-      - name: Resolve Maven Dependencies
-        run: mvn -B dependency:resolve
-        working-directory: $WORKSPACE
-        shell: bash
-
-      # Copy Maven dependencies to workspace
-      - name: Copy Maven Dependencies
+      - name: Resolve and Copy Dependencies (Minimal)
         run: |
-          mkdir -p $WORKSPACE/m2-repository
-          mvn -B dependency:copy-dependencies -Dmdep.outputDirectory=$WORKSPACE/m2-repository -X
-          echo "Listing contents of m2-repository:"
-          ls -la $WORKSPACE/m2-repository
-        working-directory: $WORKSPACE
-        shell: bash
+          mkdir -p m2-repository
+          mvn -B dependency:copy-dependencies \
+            -DincludeArtifactIds=google-cloud-spanner-jdbc,google-cloud-spanner,guava,protobuf-java \
+            -Dmdep.outputDirectory=m2-repository
+        working-directory: ${{ env.WORKSPACE }}
 
-      # Save service account key from secret
       - name: Save Service Account Key
-        run: |
-          echo "${{ secrets.GCP_SA_KEY }}" > $WORKSPACE/sa-liquibase.json
-        shell: bash
+        run: echo "${{ secrets.GCP_SA_KEY }}" > ${{ env.WORKSPACE }}/sa-liquibase.json
 
-      # Verify JAR files
-      - name: Verify JAR Files
-        run: |
-          echo "Listing all JARs in m2-repository:"
-          find $WORKSPACE/m2-repository -type f -name "*.jar" -ls || echo "No JARs found in m2-repository"
-          echo "Checking specific JAR files:"
-          ls -l $WORKSPACE/m2-repository/com/google/cloud/google-cloud-spanner-jdbc/2.14.1/google-cloud-spanner-jdbc-2.14.1.jar || echo "Spanner JDBC JAR not found"
-          ls -l $WORKSPACE/m2-repository/com/google/cloud/google-cloud-spanner-hibernate-dialect/1.8.0/google-cloud-spanner-hibernate-dialect-1.8.0.jar || echo "Hibernate Dialect JAR not found"
-          ls -l $WORKSPACE/m2-repository/com/google/cloud/google-cloud-storage/2.44.0/google-cloud-storage-2.44.0.jar || echo "Storage JAR not found"
-          ls -l $WORKSPACE/m2-repository/com/google/cloud/google-cloud-spanner/6.67.0/google-cloud-spanner-6.67.0.jar || echo "Spanner JAR not found"
-          ls -l $WORKSPACE/m2-repository/com/google/guava/guava/33.3.0-jre/guava-33.3.0-jre.jar || echo "Guava JAR not found"
-          ls -l $WORKSPACE/m2-repository/com/google/protobuf/protobuf-java/3.25.5/protobuf-java-3.25.5.jar || echo "Protobuf Java JAR not found"
-          ls -l $WORKSPACE/m2-repository/com/google/protobuf/protobuf-java-util/3.25.5/protobuf-java-util-3.25.5.jar || echo "Protobuf Java Util JAR not found"
-        shell: bash
-
-      # Check for changelog file
       - name: Check for Changelog File
         id: check_sql
         run: |
-          if [ -f "$WORKSPACE/$CHANGE_LOG_FILE" ]; then
+          if [ -f "${{ env.WORKSPACE }}/${{ env.CHANGE_LOG_FILE }}" ]; then
             echo "root_xml=true" >> $GITHUB_OUTPUT
           else
             echo "root_xml=false" >> $GITHUB_OUTPUT
           fi
-        shell: bash
 
-      # Run Liquibase Status Action
-      - name: Liquibase Status Action
+      - name: Run Liquibase Status
         id: liquibase_status
         if: steps.check_sql.outputs.root_xml == 'true'
         uses: liquibase-github-actions/status@v4.31.1
@@ -111,19 +65,19 @@ jobs:
           url: ${{ env.JDBC_URL }}
           driver: com.google.cloud.spanner.jdbc.JdbcDriver
           searchPath: ${{ env.SEARCH_PATH }}
-          classpath: /home/runner/work/demo-repo/demo-repo/m2-repository/com/google/cloud/google-cloud-spanner-jdbc/2.14.1/google-cloud-spanner-jdbc-2.14.1.jar:/home/runner/work/demo-repo/demo-repo/m2-repository/com/google/cloud/google-cloud-spanner-hibernate-dialect/1.8.0/google-cloud-spanner-hibernate-dialect-1.8.0.jar:/home/runner/work/demo-repo/demo-repo/m2-repository/com/google/cloud/google-cloud-storage/2.44.0/google-cloud-storage-2.44.0.jar:/home/runner/work/demo-repo/demo-repo/m2-repository/com/google/cloud/google-cloud-spanner/6.67.0/google-cloud-spanner-6.67.0.jar:/home/runner/work/demo-repo/demo-repo/m2-repository/com/google/guava/guava/33.3.0-jre/guava-33.3.0-jre.jar:/home/runner/work/demo-repo/demo-repo/m2-repository/com/google/protobuf/protobuf-java/3.25.5/protobuf-java-3.25.5.jar:/home/runner/work/demo-repo/demo-repo/m2-repository/com/google/protobuf/protobuf-java-util/3.25.5/protobuf-java-util-3.25.5.jar
+          classpath: |
+            ${{ env.WORKSPACE }}/m2-repository/com/google/cloud/google-cloud-spanner-jdbc/2.14.1/google-cloud-spanner-jdbc-2.14.1.jar:
+            ${{ env.WORKSPACE }}/m2-repository/com/google/cloud/google-cloud-spanner/6.67.0/google-cloud-spanner-6.67.0.jar:
+            ${{ env.WORKSPACE }}/m2-repository/com/google/guava/guava/33.3.0-jre/guava-33.3.0-jre.jar:
+            ${{ env.WORKSPACE }}/m2-repository/com/google/protobuf/protobuf-java/3.25.5/protobuf-java-3.25.5.jar
           contextFilter: ${{ inputs.app_env }}
           logLevel: debug
         env:
           JAVA_HOME: /opt/java/openjdk
-          GOOGLE_APPLICATION_CREDENTIALS: /home/runner/work/demo-repo/demo-repo/sa-liquibase.json
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ env.WORKSPACE }}/sa-liquibase.json
 
-      # Debug Outputs
-      - name: Debug Liquibase Status Outputs
+      - name: Output Results
         if: steps.check_sql.outputs.root_xml == 'true'
         run: |
-          echo "Available outputs:"
-          echo "${{ toJSON(steps.liquibase_status.outputs) }}"
-          echo "Changesets output:"
+          echo "Changesets:"
           echo "${{ steps.liquibase_status.outputs.changesets }}"
-        shell: bash

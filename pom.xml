@@ -1,4 +1,3 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
@@ -6,15 +5,11 @@
 
     <groupId>com.example</groupId>
     <artifactId>liquibase-spanner</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>1.0.0</version>
 
     <properties>
-        <maven.compiler.source>17</maven.compiler.source>
-        <maven.compiler.target>17</maven.compiler.target>
         <liquibase.version>4.31.1</liquibase.version>
         <spanner.jdbc.version>2.14.1</spanner.jdbc.version>
-        <spanner.hibernate.version>1.8.0</spanner.hibernate.version>
-        <spanner.storage.version>2.44.0</spanner.storage.version>
         <spanner.version>6.67.0</spanner.version>
         <guava.version>33.3.0-jre</guava.version>
         <protobuf.version>3.25.5</protobuf.version>
@@ -28,28 +23,14 @@
             <version>${liquibase.version}</version>
         </dependency>
 
-        <!-- Google Cloud Spanner JDBC Driver -->
+        <!-- Google Cloud Spanner JDBC -->
         <dependency>
             <groupId>com.google.cloud</groupId>
             <artifactId>google-cloud-spanner-jdbc</artifactId>
             <version>${spanner.jdbc.version}</version>
         </dependency>
 
-        <!-- Google Cloud Spanner Hibernate Dialect -->
-        <dependency>
-            <groupId>com.google.cloud</groupId>
-            <artifactId>google-cloud-spanner-hibernate-dialect</artifactId>
-            <version>${spanner.hibernate.version}</version>
-        </dependency>
-
-        <!-- Google Cloud Storage -->
-        <dependency>
-            <groupId>com.google.cloud</groupId>
-            <artifactId>google-cloud-storage</artifactId>
-            <version>${spanner.storage.version}</version>
-        </dependency>
-
-        <!-- Google Cloud Spanner -->
+        <!-- Google Cloud Spanner Core -->
         <dependency>
             <groupId>com.google.cloud</groupId>
             <artifactId>google-cloud-spanner</artifactId>
@@ -69,57 +50,5 @@
             <artifactId>protobuf-java</artifactId>
             <version>${protobuf.version}</version>
         </dependency>
-        <dependency>
-            <groupId>com.google.protobuf</groupId>
-            <artifactId>protobuf-java-util</artifactId>
-            <version>${protobuf.version}</version>
-        </dependency>
     </dependencies>
-
-    <build>
-        <plugins>
-            <!-- Maven Compiler Plugin -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.13.0</version>
-                <configuration>
-                    <source>17</source>
-                    <target>17</target>
-                </configuration>
-            </plugin>
-            <!-- Maven Dependency Plugin for copying dependencies -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-dependency-plugin</artifactId>
-                <version>3.8.0</version>
-                <executions>
-                    <execution>
-                        <id>copy-dependencies</id>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>copy-dependencies</goal>
-                        </goals>
-                        <configuration>
-                            <outputDirectory>${project.basedir}/m2-repository</outputDirectory>
-                            <includeScope>runtime</includeScope>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-        </plugins>
-    </build>
-
-    <repositories>
-        <!-- Maven Central -->
-        <repository>
-            <id>central</id>
-            <url>https://repo1.maven.org/maven2</url>
-        </repository>
-        <!-- Google Maven Repository -->
-        <repository>
-            <id>google</id>
-            <url>https://maven.google.com</url>
-        </repository>
-    </repositories>
 </project>
