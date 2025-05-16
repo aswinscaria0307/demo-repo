@@ -35,6 +35,8 @@ jobs:
       # Resolve Maven dependencies
       - name: Resolve Maven Dependencies
         run: mvn -B dependency:resolve
+        env:
+          JAVA_HOME: ${{ env.JAVA_HOME_17_X64 }}
 
       # Save service account key from secret
       - name: Save Service Account Key
@@ -55,6 +57,7 @@ jobs:
           contextFilter: ${{ inputs.app_env }}
           logLevel: debug
         env:
+          JAVA_HOME: ${{ env.JAVA_HOME_17_X64 }}
           GOOGLE_APPLICATION_CREDENTIALS: ./sa-liquibase.json
 
       # Debug Outputs
@@ -78,6 +81,7 @@ jobs:
             echo "No changesets output, falling back to CLI"
             docker run --rm \
               -v "${{ github.workspace }}:/liquibase" \
+              -e JAVA_HOME=/opt/java/openjdk \
               -e GOOGLE_APPLICATION_CREDENTIALS=/liquibase/sa-liquibase.json \
               liquibase/liquibase:4.31.1 \
               status \
