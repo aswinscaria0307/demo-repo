@@ -35,13 +35,18 @@ jobs:
       # Resolve Maven dependencies
       - name: Resolve Maven Dependencies
         run: mvn -B dependency:resolve
-        env:
-          JAVA_HOME: ${{ env.JAVA_HOME_17_X64 }}
 
       # Save service account key from secret
       - name: Save Service Account Key
         run: |
           echo "${{ secrets.GCP_SA_KEY }}" > ./sa-liquibase.json
+        shell: bash
+
+      # Verify JAVA_HOME
+      - name: Verify JAVA_HOME
+        run: |
+          echo "JAVA_HOME is set to $JAVA_HOME"
+          java -version
         shell: bash
 
       # Run Liquibase Status Action
@@ -57,7 +62,7 @@ jobs:
           contextFilter: ${{ inputs.app_env }}
           logLevel: debug
         env:
-          JAVA_HOME: ${{ env.JAVA_HOME_17_X64 }}
+          JAVA_HOME: /opt/java/openjdk
           GOOGLE_APPLICATION_CREDENTIALS: ./sa-liquibase.json
 
       # Debug Outputs
