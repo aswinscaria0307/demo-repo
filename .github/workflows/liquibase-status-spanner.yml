@@ -51,7 +51,7 @@ jobs:
           url: jdbc:cloudspanner:/projects/${{ vars.GCP_PROJECT_ID }}/instances/demo/databases/demo_liquibase?credentials=/github/workspace/sa-liquibase.json
           driver: com.google.cloud.spanner.jdbc.JdbcDriver
           searchPath: sql
-          classpath: ~/.m2/repository/com/google/cloud/cloud-spanner-jdbc/2.10.3/cloud-spanner-jdbc-2.10.3.jar
+          classpath: ~/.m2/repository/com/google/cloud/google-cloud-spanner-jdbc/2.5.7/google-cloud-spanner-jdbc-2.5.7.jar:~/.m2/repository/com/google/cloud/google-cloud-spanner-hibernate-dialect/1.5.0/google-cloud-spanner-hibernate-dialect-1.5.0.jar:~/.m2/repository/com/google/cloud/google-cloud-storage/2.7.2/google-cloud-storage-2.7.2.jar
           contextFilter: ${{ inputs.app_env }}
           logLevel: debug
         env:
@@ -86,7 +86,7 @@ jobs:
               --driver=com.google.cloud.spanner.jdbc.JdbcDriver \
               --search-path=/liquibase/sql \
               --context-filter=${{ inputs.app_env }} \
-              --classpath=/root/.m2/repository/com/google/cloud/cloud-spanner-jdbc/2.10.3/cloud-spanner-jdbc-2.10.3.jar \
+              --classpath=/root/.m2/repository/com/google/cloud/google-cloud-spanner-jdbc/2.5.7/google-cloud-spanner-jdbc-2.5.7.jar:/root/.m2/repository/com/google/cloud/google-cloud-spanner-hibernate-dialect/1.5.0/google-cloud-spanner-hibernate-dialect-1.5.0.jar:/root/.m2/repository/com/google/cloud/google-cloud-storage/2.7.2/google-cloud-storage-2.7.2.jar \
               > liquibase_status_output.txt || true
             if grep -q "is up to date" liquibase_status_output.txt; then
               echo "CHANGESETS=0" >> $GITHUB_ENV
