@@ -71,7 +71,7 @@ jobs:
             -e JAVA_HOME=/opt/java/openjdk \
             -e GOOGLE_APPLICATION_CREDENTIALS=/github/workspace/sa-liquibase.json \
             liquibase/liquibase:4.31.1 \
-            bash -c "mkdir -p /root/.m2/repository && cp -r /github/workspace/m2-repository/* /root/.m2/repository/ && liquibase status --changelog-file=sql/changelog-root.xml --url=jdbc:cloudspanner:/projects/${{ vars.GCP_PROJECT_ID }}/instances/demo/databases/demo_liquibase?credentials=/github/workspace/sa-liquibase.json --driver=com.google.cloud.spanner.jdbc.JdbcDriver --search-path=sql --classpath=/root/.m2/repository/com/google/cloud/google-cloud-spanner-jdbc/2.5.7/google-cloud-spanner-jdbc-2.5.7.jar:/root/.m2/repository/com/google/cloud/google-cloud-spanner-hibernate-dialect/1.5.0/google-cloud-spanner-hibernate-dialect-1.5.0.jar:/root/.m2/repository/com/google/cloud/google-cloud-storage/2.7.2/google-cloud-storage-2.7.2.jar --context-filter=${{ inputs.app_env }} --log-level=debug" \
+            bash -c "mkdir -p /github/workspace/.m2/repository && cp -r /github/workspace/m2-repository/* /github/workspace/.m2/repository/ && liquibase status --changelog-file=sql/changelog-root.xml --url=jdbc:cloudspanner:/projects/${{ vars.GCP_PROJECT_ID }}/instances/demo/databases/demo_liquibase?credentials=/github/workspace/sa-liquibase.json --driver=com.google.cloud.spanner.jdbc.JdbcDriver --search-path=sql --classpath=/github/workspace/.m2/repository/com/google/cloud/google-cloud-spanner-jdbc/2.5.7/google-cloud-spanner-jdbc-2.5.7.jar:/github/workspace/.m2/repository/com/google/cloud/google-cloud-spanner-hibernate-dialect/1.5.0/google-cloud-spanner-hibernate-dialect-1.5.0.jar:/github/workspace/.m2/repository/com/google/cloud/google-cloud-storage/2.7.2/google-cloud-storage-2.7.2.jar --context-filter=${{ inputs.app_env }} --log-level=debug" \
             > liquibase_status_output.txt || true
           # Parse output to simulate action's changesets output
           if grep -q "is up to date" liquibase_status_output.txt; then
@@ -103,7 +103,7 @@ jobs:
             echo "No changesets output, falling back to CLI"
             docker run --rm \
               -v "${{ github.workspace }}:/liquibase" \
-              -v "${{ github.workspace }}/m2-repository:/root/.m2/repository" \
+              -v "${{ github.workspace }}/m2-repository:/github/workspace/.m2/repository" \
               -e JAVA_HOME=/opt/java/openjdk \
               -e GOOGLE_APPLICATION_CREDENTIALS=/liquibase/sa-liquibase.json \
               liquibase/liquibase:4.31.1 \
@@ -113,7 +113,7 @@ jobs:
               --driver=com.google.cloud.spanner.jdbc.JdbcDriver \
               --search-path=/liquibase/sql \
               --context-filter=${{ inputs.app_env }} \
-              --classpath=/root/.m2/repository/com/google/cloud/google-cloud-spanner-jdbc/2.5.7/google-cloud-spanner-jdbc-2.5.7.jar:/root/.m2/repository/com/google/cloud/google-cloud-spanner-hibernate-dialect/1.5.0/google-cloud-spanner-hibernate-dialect-1.5.0.jar:/root/.m2/repository/com/google/cloud/google-cloud-storage/2.7.2/google-cloud-storage-2.7.2.jar \
+              --classpath=/github/workspace/.m2/repository/com/google/cloud/google-cloud-spanner-jdbc/2.5.7/google-cloud-spanner-jdbc-2.5.7.jar:/github/workspace/.m2/repository/com/google/cloud/google-cloud-spanner-hibernate-dialect/1.5.0/google-cloud-spanner-hibernate-dialect-1.5.0.jar:/github/workspace/.m2/repository/com/google/cloud/google-cloud-storage/2.7.2/google-cloud-storage-2.7.2.jar \
               > liquibase_status_output.txt || true
             if grep -q "is up to date" liquibase_status_output.txt; then
               echo "CHANGESETS=0" >> $GITHUB_ENV
