@@ -61,6 +61,9 @@ jobs:
           ls -l m2-repository/com/google/cloud/google-cloud-spanner-jdbc/2.5.7/google-cloud-spanner-jdbc-2.5.7.jar || echo "Spanner JDBC JAR not found"
           ls -l m2-repository/com/google/cloud/google-cloud-spanner-hibernate-dialect/1.5.0/google-cloud-spanner-hibernate-dialect-1.5.0.jar || echo "Hibernate Dialect JAR not found"
           ls -l m2-repository/com/google/cloud/google-cloud-storage/2.7.2/google-cloud-storage-2.7.2.jar || echo "Storage JAR not found"
+          ls -l m2-repository/com/google/guava/guava/33.3.0-jre/guava-33.3.0-jre.jar || echo "Guava JAR not found"
+          ls -l m2-repository/com/google/protobuf/protobuf-java/3.25.5/protobuf-java-3.25.5.jar || echo "Protobuf Java JAR not found"
+          ls -l m2-repository/com/google/protobuf/protobuf-java-util/3.25.5/protobuf-java-util-3.25.5.jar || echo "Protobuf Java Util JAR not found"
         shell: bash
 
       # Run Liquibase Status Action
@@ -72,7 +75,7 @@ jobs:
           url: ${{ env.JDBC_URL }}
           driver: com.google.cloud.spanner.jdbc.JdbcDriver
           searchPath: ${{ env.SEARCH_PATH }}
-          classpath: /github/workspace/m2-repository/com/google/cloud/google-cloud-spanner-jdbc/2.5.7/google-cloud-spanner-jdbc-2.5.7.jar:/github/workspace/m2-repository/com/google/cloud/google-cloud-spanner-hibernate-dialect/1.5.0/google-cloud-spanner-hibernate-dialect-1.5.0.jar:/github/workspace/m2-repository/com/google/cloud/google-cloud-storage/2.7.2/google-cloud-storage-2.7.2.jar
+          classpath: /github/workspace/m2-repository/com/google/cloud/google-cloud-spanner-jdbc/2.5.7/google-cloud-spanner-jdbc-2.5.7.jar:/github/workspace/m2-repository/com/google/cloud/google-cloud-spanner-hibernate-dialect/1.5.0/google-cloud-spanner-hibernate-dialect-1.5.0.jar:/github/workspace/m2-repository/com/google/cloud/google-cloud-storage/2.7.2/google-cloud-storage-2.7.2.jar:/github/workspace/m2-repository/com/google/guava/guava/33.3.0-jre/guava-33.3.0-jre.jar:/github/workspace/m2-repository/com/google/protobuf/protobuf-java/3.25.5/protobuf-java-3.25.5.jar:/github/workspace/m2-repository/com/google/protobuf/protobuf-java-util/3.25.5/protobuf-java-util-3.25.5.jar
           contextFilter: ${{ inputs.app_env }}
           logLevel: debug
         env:
