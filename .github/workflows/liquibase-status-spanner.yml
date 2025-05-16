@@ -37,9 +37,29 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
 
+      # Debug working directory and pom.xml
+      - name: Debug Working Directory
+        run: |
+          echo "Current working directory:"
+          pwd
+          echo "Listing files in /github/workspace:"
+          ls -la /github/workspace
+          echo "Checking for pom.xml:"
+          ls -l pom.xml || echo "pom.xml not found"
+        shell: bash
+
+      # Resolve Maven dependencies as fallback
+      - name: Resolve Maven Dependencies
+        run: mvn -B dependency:resolve
+        shell: bash
+
       # Copy Maven dependencies to workspace
       - name: Copy Maven Dependencies
-        run: mvn -B dependency:copy-dependencies -Dmdep.outputDirectory=m2-repository
+        run: |
+          mkdir -p m2-repository
+          mvn -B dependency:copy-dependencies -Dmdep.outputDirectory=m2-repository -X
+          echo "Listing contents of m2-repository:"
+          ls -la m2-repository
         shell: bash
 
       # Save service account key from secret
@@ -52,7 +72,7 @@ jobs:
       - name: Verify JAR Files
         run: |
           echo "Listing all JARs in m2-repository:"
-          find m2-repository -type f -name "*.jar" -ls
+          find m2-repository -type f -name "*.jar" -ls || echo "No JARs found in m2-repository"
           echo "Checking specific JAR files:"
           ls -l m2-repository/com/google/cloud/google-cloud-spanner-jdbc/2.14.1/google-cloud-spanner-jdbc-2.14.1.jar || echo "Spanner JDBC JAR not found"
           ls -l m2-repository/com/google/cloud/google-cloud-spanner-hibernate-dialect/1.8.0/google-cloud-spanner-hibernate-dialect-1.8.0.jar || echo "Hibernate Dialect JAR not found"
