@@ -12,8 +12,8 @@
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
         <liquibase.version>4.31.1</liquibase.version>
-        <spanner.jdbc.version>2.14.1</spanner.jdbc.version>
-        <spanner.version>6.67.0</spanner.version>
+        <spanner.jdbc.version>2.5.7</spanner.jdbc.version>
+        <spanner.version>1.50.0</spanner.version>
         <guava.version>33.3.0-jre</guava.version>
         <protobuf.version>3.25.5</protobuf.version>
     </properties>
