@@ -28,7 +28,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          key: ${{ runner.os }}-maven-${{ hashFiles('pom.xml') }}
           restore-keys: |
             ${{ runner.os }}-maven-
 
@@ -55,7 +55,7 @@ jobs:
           contextFilter: ${{ inputs.app_env }}
           logLevel: debug
         env:
-          GOOGLE_APPLICATION_CREDENTIALS: /github/workspace/sa-liquibase.json
+          GOOGLE_APPLICATION_CREDENTIALS: ./sa-liquibase.json
 
       # Debug Outputs
       - name: Debug Liquibase Status Outputs
@@ -66,7 +66,7 @@ jobs:
           echo "${{ steps.liquibase_status.outputs.changesets }}"
         shell: bash
 
-      # Parse Status Output
+      # Parse Status Output (Fallback if changesets is undefined)
       - name: Parse Liquibase Status
         id: parse_status
         run: |
@@ -79,19 +79,17 @@ jobs:
             docker run --rm \
               -v "${{ github.workspace }}:/liquibase" \
               -e GOOGLE_APPLICATION_CREDENTIALS=/liquibase/sa-liquibase.json \
-              -v "${HOME}/.m2/repository:/liquibase/classpath" \
               liquibase/liquibase:4.31.1 \
               status \
               --changelog-file=sql/changelog-root.xml \
               --url=jdbc:cloudspanner:/projects/${{ vars.GCP_PROJECT_ID }}/instances/demo/databases/demo_liquibase?credentials=/liquibase/sa-liquibase.json \
               --driver=com.google.cloud.spanner.jdbc.JdbcDriver \
               --search-path=/liquibase/sql \
-              --classpath=/liquibase/classpath/com/google/cloud/cloud-spanner-jdbc/2.10.3/cloud-spanner-jdbc-2.10.3.jar \
               --context-filter=${{ inputs.app_env }} \
-              --log-level=debug \
+              --classpath=/root/.m2/repository/com/google/cloud/cloud-spanner-jdbc/2.10.3/cloud-spanner-jdbc-2.10.3.jar \
               > liquibase_status_output.txt || true
             if grep -q "is up to date" liquibase_status_output.txt; then
-              echo " âge=0" >> $GITHUB_ENV
+              echo "CHANGESETS=0" >> $GITHUB_ENV
             else
               CHANGESETS=$(grep -o '[0-9]\+ change sets have not been applied' liquibase_status_output.txt | grep -o '[0-9]\+' || echo "0")
               echo "CHANGESETS=$CHANGESETS" >> $GITHUB_ENV
