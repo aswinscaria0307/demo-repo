@@ -65,7 +65,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('pom.xml') }}-v8
+          key: ${{ runner.os }}-maven-${{ hashFiles('pom.xml') }}-v9
           restore-keys: |
             ${{ runner.os }}-maven-
 
@@ -134,8 +134,10 @@ jobs:
 
       - name: Verify JAR Files
         run: |
-          echo "Listing all JARs in m2-repository:"
+          echo "Listing all JARs in m2-repository before Liquibase:"
           find ${{ env.WORKSPACE }}/m2-repository -type f -name "*.jar" -ls || echo "No JARs found in m2-repository"
+          echo "Classpath to be used:"
+          echo "${{ env.WORKSPACE }}/m2-repository/google-cloud-spanner-jdbc-2.5.7.jar:${{ env.WORKSPACE }}/m2-repository/google-cloud-spanner-1.50.0.jar:${{ env.WORKSPACE }}/m2-repository/guava-30.1.1-jre.jar:${{ env.WORKSPACE }}/m2-repository/protobuf-java-3.25.5.jar:${{ env.WORKSPACE }}/m2-repository/protobuf-java-util-3.25.5.jar"
         shell: bash
 
       - name: Check for Changelog File
@@ -157,7 +159,7 @@ jobs:
           url: ${{ env.JDBC_URL }}
           driver: com.google.cloud.spanner.jdbc.JdbcDriver
           searchPath: ${{ env.SEARCH_PATH }}
-          classpath: ${{ env.WORKSPACE }}/m2-repository/*.jar
+          classpath: ${{ env.WORKSPACE }}/m2-repository/google-cloud-spanner-jdbc-2.5.7.jar:${{ env.WORKSPACE }}/m2-repository/google-cloud-spanner-1.50.0.jar:${{ env.WORKSPACE }}/m2-repository/guava-30.1.1-jre.jar:${{ env.WORKSPACE }}/m2-repository/protobuf-java-3.25.5.jar:${{ env.WORKSPACE }}/m2-repository/protobuf-java-util-3.25.5.jar
           contextFilter: ${{ inputs.app_env }}
           logLevel: debug
         env:
