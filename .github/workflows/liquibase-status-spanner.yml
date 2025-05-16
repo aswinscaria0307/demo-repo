@@ -13,9 +13,6 @@ on:
         required: true
 
 env:
-
-
-name: Liquibase Status with Spanneron:  workflow_dispatch:    inputs:      app_env:        description: 'Environment (dev, stage, prod-c)'        default: 'dev'        required: true      spanner_instance:        description: 'Spanner instance (e.g., demo, b2b-dev01)'        default: $0
   CHANGE_LOG_FILE: sql/changelog-root.xml
   JDBC_URL: jdbc:cloudspanner:/projects/${{ vars.GCP_PROJECT_ID }}/instances/${{ inputs.spanner_instance }}/databases/demo_liquibase?credentials=${{ github.workspace }}/sa-liquibase.json
   SEARCH_PATH: sql
@@ -57,12 +54,18 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('pom.xml') }}-v2
+          key: ${{ runner.os }}-maven-${{ hashFiles('pom.xml') }}-v3
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      # Resolve and copy dependencies
-      - name: Resolve and Copy Dependencies
+      # Resolve dependencies
+      - name: Resolve Dependencies
+        run: mvn -B dependency:resolve -X
+        working-directory: ${{ env.WORKSPACE }}
+        shell: bash
+
+      # Copy dependencies
+      - name: Copy Dependencies
         run: |
           mkdir -p ${{ env.WORKSPACE }}/m2-repository
           mvn -B dependency:copy-dependencies -Dmdep.outputDirectory=${{ env.WORKSPACE }}/m2-repository -X
