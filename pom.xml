@@ -12,9 +12,10 @@
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
         <liquibase.version>4.31.1</liquibase.version>
-        <spanner.jdbc.version>2.5.7</spanner.jdbc.version>
-        <spanner.hibernate.version>1.5.0</spanner.hibernate.version>
-        <spanner.storage.version>2.7.2</spanner.storage.version>
+        <spanner.jdbc.version>2.14.1</spanner.jdbc.version>
+        <spanner.hibernate.version>1.8.0</spanner.hibernate.version>
+        <spanner.storage.version>2.44.0</spanner.storage.version>
+        <spanner.version>6.67.0</spanner.version>
         <guava.version>33.3.0-jre</guava.version>
         <protobuf.version>3.25.5</protobuf.version>
     </properties>
@@ -48,6 +49,13 @@
             <version>${spanner.storage.version}</version>
         </dependency>
 
+        <!-- Google Cloud Spanner -->
+        <dependency>
+            <groupId>com.google.cloud</groupId>
+            <artifactId>google-cloud-spanner</artifactId>
+            <version>${spanner.version}</version>
+        </dependency>
+
         <!-- Guava -->
         <dependency>
             <groupId>com.google.guava</groupId>
@@ -79,6 +87,25 @@
                     <source>17</source>
                     <target>17</target>
                 </configuration>
+            </plugin>
+            <!-- Maven Dependency Plugin for copying dependencies -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <version>3.8.0</version>
+                <executions>
+                    <execution>
+                        <id>copy-dependencies</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>copy-dependencies</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.basedir}/m2-repository</outputDirectory>
+                            <includeScope>runtime</includeScope>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

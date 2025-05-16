@@ -37,15 +37,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      # Resolve Maven dependencies
-      - name: Resolve Maven Dependencies
-        run: mvn -B dependency:resolve
-
-      # Copy Maven repository to workspace
-      - name: Copy Maven Repository to Workspace
-        run: |
-          mkdir -p m2-repository
-          cp -r ~/.m2/repository/* m2-repository/
+      # Copy Maven dependencies to workspace
+      - name: Copy Maven Dependencies
+        run: mvn -B dependency:copy-dependencies -Dmdep.outputDirectory=m2-repository
         shell: bash
 
       # Save service account key from secret
@@ -57,25 +51,40 @@ jobs:
       # Verify JAR files
       - name: Verify JAR Files
         run: |
-          echo "Checking JAR files in m2-repository:"
-          ls -l m2-repository/com/google/cloud/google-cloud-spanner-jdbc/2.5.7/google-cloud-spanner-jdbc-2.5.7.jar || echo "Spanner JDBC JAR not found"
-          ls -l m2-repository/com/google/cloud/google-cloud-spanner-hibernate-dialect/1.5.0/google-cloud-spanner-hibernate-dialect-1.5.0.jar || echo "Hibernate Dialect JAR not found"
-          ls -l m2-repository/com/google/cloud/google-cloud-storage/2.7.2/google-cloud-storage-2.7.2.jar || echo "Storage JAR not found"
+          echo "Listing all JARs in m2-repository:"
+          find m2-repository -type f -name "*.jar" -ls
+          echo "Checking specific JAR files:"
+          ls -l m2-repository/com/google/cloud/google-cloud-spanner-jdbc/2.14.1/google-cloud-spanner-jdbc-2.14.1.jar || echo "Spanner JDBC JAR not found"
+          ls -l m2-repository/com/google/cloud/google-cloud-spanner-hibernate-dialect/1.8.0/google-cloud-spanner-hibernate-dialect-1.8.0.jar || echo "Hibernate Dialect JAR not found"
+          ls -l m2-repository/com/google/cloud/google-cloud-storage/2.44.0/google-cloud-storage-2.44.0.jar || echo "Storage JAR not found"
+          ls -l m2-repository/com/google/cloud/google-cloud-spanner/6.67.0/google-cloud-spanner-6.67.0.jar || echo "Spanner JAR not found"
           ls -l m2-repository/com/google/guava/guava/33.3.0-jre/guava-33.3.0-jre.jar || echo "Guava JAR not found"
           ls -l m2-repository/com/google/protobuf/protobuf-java/3.25.5/protobuf-java-3.25.5.jar || echo "Protobuf Java JAR not found"
           ls -l m2-repository/com/google/protobuf/protobuf-java-util/3.25.5/protobuf-java-util-3.25.5.jar || echo "Protobuf Java Util JAR not found"
         shell: bash
 
+      # Check for changelog file
+      - name: Check for Changelog File
+        id: check_sql
+        run: |
+          if [ -f "sql/changelog-root.xml" ]; then
+            echo "root_xml=true" >> $GITHUB_OUTPUT
+          else
+            echo "root_xml=false" >> $GITHUB_OUTPUT
+          fi
+        shell: bash
+
       # Run Liquibase Status Action
       - name: Liquibase Status Action
         id: liquibase_status
+        if: steps.check_sql.outputs.root_xml == 'true'
         uses: liquibase-github-actions/status@v4.31.1
         with:
           changelogFile: ${{ env.CHANGE_LOG_FILE }}
           url: ${{ env.JDBC_URL }}
           driver: com.google.cloud.spanner.jdbc.JdbcDriver
           searchPath: ${{ env.SEARCH_PATH }}
-          classpath: /github/workspace/m2-repository/com/google/cloud/google-cloud-spanner-jdbc/2.5.7/google-cloud-spanner-jdbc-2.5.7.jar:/github/workspace/m2-repository/com/google/cloud/google-cloud-spanner-hibernate-dialect/1.5.0/google-cloud-spanner-hibernate-dialect-1.5.0.jar:/github/workspace/m2-repository/com/google/cloud/google-cloud-storage/2.7.2/google-cloud-storage-2.7.2.jar:/github/workspace/m2-repository/com/google/guava/guava/33.3.0-jre/guava-33.3.0-jre.jar:/github/workspace/m2-repository/com/google/protobuf/protobuf-java/3.25.5/protobuf-java-3.25.5.jar:/github/workspace/m2-repository/com/google/protobuf/protobuf-java-util/3.25.5/protobuf-java-util-3.25.5.jar
+          classpath: /github/workspace/m2-repository/com/google/cloud/google-cloud-spanner-jdbc/2.14.1/google-cloud-spanner-jdbc-2.14.1.jar:/github/workspace/m2-repository/com/google/cloud/google-cloud-spanner-hibernate-dialect/1.8.0/google-cloud-spanner-hibernate-dialect-1.8.0.jar:/github/workspace/m2-repository/com/google/cloud/google-cloud-storage/2.44.0/google-cloud-storage-2.44.0.jar:/github/workspace/m2-repository/com/google/cloud/google-cloud-spanner/6.67.0/google-cloud-spanner-6.67.0.jar:/github/workspace/m2-repository/com/google/guava/guava/33.3.0-jre/guava-33.3.0-jre.jar:/github/workspace/m2-repository/com/google/protobuf/protobuf-java/3.25.5/protobuf-java-3.25.5.jar:/github/workspace/m2-repository/com/google/protobuf/protobuf-java-util/3.25.5/protobuf-java-util-3.25.5.jar
           contextFilter: ${{ inputs.app_env }}
           logLevel: debug
         env:
@@ -84,6 +93,7 @@ jobs:
 
       # Debug Outputs
       - name: Debug Liquibase Status Outputs
+        if: steps.check_sql.outputs.root_xml == 'true'
         run: |
           echo "Available outputs:"
           echo "${{ toJSON(steps.liquibase_status.outputs) }}"
