@@ -118,9 +118,9 @@ jobs:
             "guava-30.1.1-jre.jar" \
             "protobuf-java-3.25.5.jar" \
             "protobuf-java-util-3.25.5.jar" \
-            "grpc-protobuf-1.35.0.jar" \
-            "grpc-stub-1.35.0.jar" \
-            "grpc-netty-shaded-1.35.0.jar"; do
+            "grpc-protobuf-1.43.2.jar" \
+            "grpc-stub-1.43.2.jar" \
+            "grpc-netty-shaded-1.43.2.jar"; do
             if [ -f "${{ env.WORKSPACE }}/m2-repository/$jar" ]; then
               echo "$jar found"
             else
