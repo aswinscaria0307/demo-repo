@@ -16,38 +16,45 @@
         <spanner.version>1.50.0</spanner.version>
         <guava.version>30.1.1-jre</guava.version>
         <protobuf.version>3.25.5</protobuf.version>
+        <mdep.outputDirectory>${project.basedir}/m2-repository</mdep.outputDirectory>
     </properties>
 
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.google.cloud</groupId>
+                <artifactId>google-cloud-spanner-jdbc</artifactId>
+                <version>${spanner.jdbc.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.google.cloud</groupId>
+                <artifactId>google-cloud-spanner</artifactId>
+                <version>${spanner.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
-        <!-- Liquibase Core -->
         <dependency>
             <groupId>org.liquibase</groupId>
             <artifactId>liquibase-core</artifactId>
             <version>${liquibase.version}</version>
         </dependency>
-
-        <!-- Google Cloud Spanner JDBC -->
         <dependency>
             <groupId>com.google.cloud</groupId>
             <artifactId>google-cloud-spanner-jdbc</artifactId>
             <version>${spanner.jdbc.version}</version>
         </dependency>
-
-        <!-- Google Cloud Spanner Core -->
         <dependency>
             <groupId>com.google.cloud</groupId>
             <artifactId>google-cloud-spanner</artifactId>
             <version>${spanner.version}</version>
         </dependency>
-
-        <!-- Guava -->
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
             <version>${guava.version}</version>
         </dependency>
-
-        <!-- Protobuf -->
         <dependency>
             <groupId>com.google.protobuf</groupId>
             <artifactId>protobuf-java</artifactId>
@@ -62,7 +69,6 @@
 
     <build>
         <plugins>
-            <!-- Maven Compiler Plugin -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -72,7 +78,6 @@
                     <target>17</target>
                 </configuration>
             </plugin>
-            <!-- Maven Dependency Plugin -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>
@@ -80,13 +85,16 @@
                 <executions>
                     <execution>
                         <id>copy-dependencies</id>
-                        <phase>package</phase>
+                        <phase>process-resources</phase>
                         <goals>
                             <goal>copy-dependencies</goal>
                         </goals>
                         <configuration>
-                            <outputDirectory>${project.basedir}/m2-repository</outputDirectory>
+                            <outputDirectory>${mdep.outputDirectory}</outputDirectory>
                             <includeScope>runtime</includeScope>
+                            <overWriteReleases>true</overWriteReleases>
+                            <overWriteSnapshots>true</overWriteSnapshots>
+                            <silent>false</silent>
                         </configuration>
                     </execution>
                 </executions>

@@ -22,13 +22,11 @@ jobs:
   test-liquibase-status:
     runs-on: ubuntu-latest
     steps:
-      # Checkout repository
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
-      # Debug environment and repository contents
       - name: Debug Environment
         run: |
           echo "Current working directory:"
@@ -53,28 +51,24 @@ jobs:
           fi
         shell: bash
 
-      # Set up Java
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      # Clear Maven cache
       - name: Clear Maven Cache
         run: rm -rf ~/.m2/repository
         shell: bash
 
-      # Cache Maven dependencies
       - name: Cache Maven Dependencies
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('pom.xml') }}-v7
+          key: ${{ runner.os }}-maven-${{ hashFiles('pom.xml') }}-v8
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      # Debug dependency tree
       - name: Debug Dependency Tree
         run: |
           mvn -B dependency:tree -X > mvn-tree.log 2>&1
@@ -88,7 +82,6 @@ jobs:
         working-directory: ${{ env.WORKSPACE }}
         shell: bash
 
-      # Resolve dependencies
       - name: Resolve Dependencies
         run: |
           mvn -B dependency:resolve -U -X > mvn-resolve.log 2>&1
@@ -100,14 +93,24 @@ jobs:
         working-directory: ${{ env.WORKSPACE }}
         shell: bash
 
-      # Copy dependencies
       - name: Copy Dependencies
         run: |
           rm -rf ${{ env.WORKSPACE }}/m2-repository ${{ env.WORKSPACE }}/target
           mkdir -p ${{ env.WORKSPACE }}/m2-repository
+          echo "Running mvn command:"
+          echo "mvn -B dependency:copy-dependencies -Dmdep.outputDirectory=${{ env.WORKSPACE }}/m2-repository -U -X"
           mvn -B dependency:copy-dependencies -Dmdep.outputDirectory=${{ env.WORKSPACE }}/m2-repository -U -X > mvn-copy.log 2>&1
           cat mvn-copy.log
+          echo "Listing contents of target/dependency:"
+          ls -la ${{ env.WORKSPACE }}/target/dependency || echo "No target/dependency directory"
           echo "Listing contents of m2-repository:"
+          ls -la ${{ env.WORKSPACE }}/m2-repository
+          # Fallback: Copy JARs from target/dependency to m2-repository if present
+          if [ -d "${{ env.WORKSPACE }}/target/dependency" ]; then
+            echo "Copying JARs from target/dependency to m2-repository"
+            cp -v ${{ env.WORKSPACE }}/target/dependency/*.jar ${{ env.WORKSPACE }}/m2-repository/ || echo "No JARs to copy"
+          fi
+          echo "Listing contents of m2-repository after fallback copy:"
           ls -la ${{ env.WORKSPACE }}/m2-repository
           for jar in \
             "google-cloud-spanner-jdbc-2.5.7.jar" \
@@ -125,19 +128,16 @@ jobs:
         working-directory: ${{ env.WORKSPACE }}
         shell: bash
 
-      # Save service account key
       - name: Save Service Account Key
         run: echo "${{ secrets.GCP_SA_KEY }}" > ${{ env.WORKSPACE }}/sa-liquibase.json
         shell: bash
 
-      # Verify JAR files
       - name: Verify JAR Files
         run: |
           echo "Listing all JARs in m2-repository:"
           find ${{ env.WORKSPACE }}/m2-repository -type f -name "*.jar" -ls || echo "No JARs found in m2-repository"
         shell: bash
 
-      # Check for changelog file
       - name: Check for Changelog File
         id: check_sql
         run: |
@@ -148,7 +148,6 @@ jobs:
           fi
         shell: bash
 
-      # Run Liquibase Status
       - name: Run Liquibase Status
         id: liquibase_status
         if: steps.check_sql.outputs.root_xml == 'true'
@@ -165,7 +164,6 @@ jobs:
           JAVA_HOME: /opt/java/openjdk
           GOOGLE_APPLICATION_CREDENTIALS: ${{ env.WORKSPACE }}/sa-liquibase.json
 
-      # Output results
       - name: Output Results
         if: steps.check_sql.outputs.root_xml == 'true'
         run: |
