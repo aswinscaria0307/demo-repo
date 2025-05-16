@@ -39,6 +39,7 @@ jobs:
           echo "Checking for pom.xml:"
           if [ -f "${{ env.WORKSPACE }}/pom.xml" ]; then
             echo "pom.xml found"
+            cat ${{ env.WORKSPACE }}/pom.xml
           else
             echo "Error: pom.xml not found" >&2
             exit 1
@@ -59,34 +60,68 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
+      # Clear Maven cache
+      - name: Clear Maven Cache
+        run: rm -rf ~/.m2/repository
+        shell: bash
+
       # Cache Maven dependencies
       - name: Cache Maven Dependencies
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('pom.xml') }}-v4
+          key: ${{ runner.os }}-maven-${{ hashFiles('pom.xml') }}-v7
           restore-keys: |
             ${{ runner.os }}-maven-
 
+      # Debug dependency tree
+      - name: Debug Dependency Tree
+        run: |
+          mvn -B dependency:tree -X > mvn-tree.log 2>&1
+          cat mvn-tree.log
+          if grep -q "com.google.cloud:google-cloud-spanner-jdbc:jar:2.5.7" mvn-tree.log; then
+            echo "google-cloud-spanner-jdbc:2.5.7 found in dependency tree"
+          else
+            echo "Error: google-cloud-spanner-jdbc:2.5.7 not found in dependency tree" >&2
+            exit 1
+          fi
+        working-directory: ${{ env.WORKSPACE }}
+        shell: bash
+
       # Resolve dependencies
       - name: Resolve Dependencies
-        run: mvn -B dependency:resolve -X
+        run: |
+          mvn -B dependency:resolve -U -X > mvn-resolve.log 2>&1
+          cat mvn-resolve.log
+          if [ $? -ne 0 ]; then
+            echo "Error: Maven dependency resolution failed" >&2
+            exit 1
+          fi
         working-directory: ${{ env.WORKSPACE }}
         shell: bash
 
       # Copy dependencies
       - name: Copy Dependencies
         run: |
+          rm -rf ${{ env.WORKSPACE }}/m2-repository ${{ env.WORKSPACE }}/target
           mkdir -p ${{ env.WORKSPACE }}/m2-repository
-          mvn -B dependency:copy-dependencies -Dmdep.outputDirectory=${{ env.WORKSPACE }}/m2-repository -X
+          mvn -B dependency:copy-dependencies -Dmdep.outputDirectory=${{ env.WORKSPACE }}/m2-repository -U -X > mvn-copy.log 2>&1
+          cat mvn-copy.log
           echo "Listing contents of m2-repository:"
           ls -la ${{ env.WORKSPACE }}/m2-repository
-          if [ -f "${{ env.WORKSPACE }}/m2-repository/com/google/cloud/google-cloud-spanner-jdbc/2.5.7/google-cloud-spanner-jdbc-2.5.7.jar" ]; then
-            echo "google-cloud-spanner-jdbc-2.5.7.jar found"
-          else
-            echo "Error: google-cloud-spanner-jdbc-2.5.7.jar not found in m2-repository" >&2
-            exit 1
-          fi
+          for jar in \
+            "google-cloud-spanner-jdbc-2.5.7.jar" \
+            "google-cloud-spanner-1.50.0.jar" \
+            "guava-30.1.1-jre.jar" \
+            "protobuf-java-3.25.5.jar" \
+            "protobuf-java-util-3.25.5.jar"; do
+            if [ -f "${{ env.WORKSPACE }}/m2-repository/$jar" ]; then
+              echo "$jar found"
+            else
+              echo "Error: $jar not found in m2-repository" >&2
+              exit 1
+            fi
+          done
         working-directory: ${{ env.WORKSPACE }}
         shell: bash
 
@@ -100,12 +135,6 @@ jobs:
         run: |
           echo "Listing all JARs in m2-repository:"
           find ${{ env.WORKSPACE }}/m2-repository -type f -name "*.jar" -ls || echo "No JARs found in m2-repository"
-          echo "Checking specific JAR files:"
-          ls -l ${{ env.WORKSPACE }}/m2-repository/com/google/cloud/google-cloud-spanner-jdbc/2.5.7/google-cloud-spanner-jdbc-2.5.7.jar || echo "Spanner JDBC JAR not found"
-          ls -l ${{ env.WORKSPACE }}/m2-repository/com/google/cloud/google-cloud-spanner/1.50.0/google-cloud-spanner-1.50.0.jar || echo "Spanner JAR not found"
-          ls -l ${{ env.WORKSPACE }}/m2-repository/com/google/guava/guava/30.1.1-jre/guava-30.1.1-jre.jar || echo "Guava JAR not found"
-          ls -l ${{ env.WORKSPACE }}/m2-repository/com/google/protobuf/protobuf-java/3.25.5/protobuf-java-3.25.5.jar || echo "Protobuf Java JAR not found"
-          ls -l ${{ env.WORKSPACE }}/m2-repository/com/google/protobuf/protobuf-java-util/3.25.5/protobuf-java-util-3.25.5.jar || echo "Protobuf Java Util JAR not found"
         shell: bash
 
       # Check for changelog file
