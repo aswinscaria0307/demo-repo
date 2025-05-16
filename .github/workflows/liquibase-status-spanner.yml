@@ -12,9 +12,29 @@ jobs:
   test-liquibase-status:
     runs-on: ubuntu-latest
     steps:
-      # Checkout repository to access changelog
+      # Checkout repository to access changelog and pom.xml
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      # Set up Java
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      # Cache Maven dependencies
+      - name: Cache Maven Dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      # Resolve Maven dependencies
+      - name: Resolve Maven Dependencies
+        run: mvn -B dependency:resolve
 
       # Save service account key from secret
       - name: Save Service Account Key
@@ -31,11 +51,11 @@ jobs:
           url: jdbc:cloudspanner:/projects/${{ vars.GCP_PROJECT_ID }}/instances/demo/databases/demo_liquibase?credentials=/github/workspace/sa-liquibase.json
           driver: com.google.cloud.spanner.jdbc.JdbcDriver
           searchPath: sql
-          classpath: lib/spanner-jdbc-driver.jar
+          classpath: ~/.m2/repository/com/google/cloud/cloud-spanner-jdbc/2.10.3/cloud-spanner-jdbc-2.10.3.jar
           contextFilter: ${{ inputs.app_env }}
           logLevel: debug
         env:
-          GOOGLE_APPLICATION_CREDENTIALS: ./sa-liquibase.json
+          GOOGLE_APPLICATION_CREDENTIALS: /github/workspace/sa-liquibase.json
 
       # Debug Outputs
       - name: Debug Liquibase Status Outputs
@@ -46,7 +66,7 @@ jobs:
           echo "${{ steps.liquibase_status.outputs.changesets }}"
         shell: bash
 
-      # Parse Status Output (Fallback if changesets is undefined)
+      # Parse Status Output
       - name: Parse Liquibase Status
         id: parse_status
         run: |
@@ -59,16 +79,19 @@ jobs:
             docker run --rm \
               -v "${{ github.workspace }}:/liquibase" \
               -e GOOGLE_APPLICATION_CREDENTIALS=/liquibase/sa-liquibase.json \
+              -v "${HOME}/.m2/repository:/liquibase/classpath" \
               liquibase/liquibase:4.31.1 \
               status \
               --changelog-file=sql/changelog-root.xml \
-              --url=jdbc:cloudspanner:/projects/${{ vars.GCP_PROJECT_ID }}/instances/b2b-dev01/databases/test_liquibase?credentials=/liquibase/sa-liquibase.json \
+              --url=jdbc:cloudspanner:/projects/${{ vars.GCP_PROJECT_ID }}/instances/demo/databases/demo_liquibase?credentials=/liquibase/sa-liquibase.json \
               --driver=com.google.cloud.spanner.jdbc.JdbcDriver \
               --search-path=/liquibase/sql \
+              --classpath=/liquibase/classpath/com/google/cloud/cloud-spanner-jdbc/2.10.3/cloud-spanner-jdbc-2.10.3.jar \
               --context-filter=${{ inputs.app_env }} \
+              --log-level=debug \
               > liquibase_status_output.txt || true
             if grep -q "is up to date" liquibase_status_output.txt; then
-              echo "CHANGESETS=0" >> $GITHUB_ENV
+              echo " âge=0" >> $GITHUB_ENV
             else
               CHANGESETS=$(grep -o '[0-9]\+ change sets have not been applied' liquibase_status_output.txt | grep -o '[0-9]\+' || echo "0")
               echo "CHANGESETS=$CHANGESETS" >> $GITHUB_ENV
