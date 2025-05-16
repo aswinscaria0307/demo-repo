@@ -42,11 +42,15 @@ jobs:
           echo "${{ secrets.GCP_SA_KEY }}" > ./sa-liquibase.json
         shell: bash
 
-      # Verify JAVA_HOME
-      - name: Verify JAVA_HOME
+      # Verify JAVA_HOME and JAR files
+      - name: Verify JAVA_HOME and JAR Files
         run: |
           echo "JAVA_HOME is set to $JAVA_HOME"
           java -version
+          echo "Checking JAR files:"
+          ls -l /root/.m2/repository/com/google/cloud/google-cloud-spanner-jdbc/2.5.7/google-cloud-spanner-jdbc-2.5.7.jar || echo "Spanner JDBC JAR not found"
+          ls -l /root/.m2/repository/com/google/cloud/google-cloud-spanner-hibernate-dialect/1.5.0/google-cloud-spanner-hibernate-dialect-1.5.0.jar || echo "Hibernate Dialect JAR not found"
+          ls -l /root/.m2/repository/com/google/cloud/google-cloud-storage/2.7.2/google-cloud-storage-2.7.2.jar || echo "Storage JAR not found"
         shell: bash
 
       # Run Liquibase Status Action
@@ -58,7 +62,7 @@ jobs:
           url: jdbc:cloudspanner:/projects/${{ vars.GCP_PROJECT_ID }}/instances/demo/databases/demo_liquibase?credentials=/github/workspace/sa-liquibase.json
           driver: com.google.cloud.spanner.jdbc.JdbcDriver
           searchPath: sql
-          classpath: ~/.m2/repository/com/google/cloud/google-cloud-spanner-jdbc/2.5.7/google-cloud-spanner-jdbc-2.5.7.jar:~/.m2/repository/com/google/cloud/google-cloud-spanner-hibernate-dialect/1.5.0/google-cloud-spanner-hibernate-dialect-1.5.0.jar:~/.m2/repository/com/google/cloud/google-cloud-storage/2.7.2/google-cloud-storage-2.7.2.jar
+          classpath: /root/.m2/repository/com/google/cloud/google-cloud-spanner-jdbc/2.5.7/google-cloud-spanner-jdbc-2.5.7.jar:/root/.m2/repository/com/google/cloud/google-cloud-spanner-hibernate-dialect/1.5.0/google-cloud-spanner-hibernate-dialect-1.5.0.jar:/root/.m2/repository/com/google/cloud/google-cloud-storage/2.7.2/google-cloud-storage-2.7.2.jar
           contextFilter: ${{ inputs.app_env }}
           logLevel: debug
         env:
