@@ -14,7 +14,7 @@ on:
 
 env:
   CHANGE_LOG_FILE: sql/changelog-root.xml
-  JDBC_URL: jdbc:cloudspanner:/projects/${{ vars.GCP_PROJECT_ID }}/instances/${{ inputs.spanner_instance }}/databases/demo_liquibase?credentials=${{ github.workspace }}/sa-liquibase.json
+  JDBC_URL: jdbc:cloudspanner:/projects/${{ vars.GCP_PROJECT_ID }}/instances/${{ inputs.spanner_instance }}/databases/demo_liquibase?credentials=/github/workspace/sa-liquibase.json
   SEARCH_PATH: sql
   WORKSPACE: ${{ github.workspace }}
 
@@ -65,7 +65,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('pom.xml') }}-v9
+          key: ${{ runner.os }}-maven-${{ hashFiles('pom.xml') }}-v10
           restore-keys: |
             ${{ runner.os }}-maven-
 
@@ -137,7 +137,12 @@ jobs:
           echo "Listing all JARs in m2-repository before Liquibase:"
           find ${{ env.WORKSPACE }}/m2-repository -type f -name "*.jar" -ls || echo "No JARs found in m2-repository"
           echo "Classpath to be used:"
-          echo "${{ env.WORKSPACE }}/m2-repository/google-cloud-spanner-jdbc-2.5.7.jar:${{ env.WORKSPACE }}/m2-repository/google-cloud-spanner-1.50.0.jar:${{ env.WORKSPACE }}/m2-repository/guava-30.1.1-jre.jar:${{ env.WORKSPACE }}/m2-repository/protobuf-java-3.25.5.jar:${{ env.WORKSPACE }}/m2-repository/protobuf-java-util-3.25.5.jar"
+          echo "/github/workspace/m2-repository/google-cloud-spanner-jdbc-2.5.7.jar:/github/workspace/m2-repository/google-cloud-spanner-1.50.0.jar:/github/workspace/m2-repository/guava-30.1.1-jre.jar:/github/workspace/m2-repository/protobuf-java-3.25.5.jar:/github/workspace/m2-repository/protobuf-java-util-3.25.5.jar"
+        shell: bash
+
+      - name: Debug Docker Mount
+        run: |
+          docker run --rm -v "${{ env.WORKSPACE }}:/github/workspace" ubuntu bash -c "ls -la /github/workspace/m2-repository && find /github/workspace/m2-repository -type f -name '*.jar' -ls"
         shell: bash
 
       - name: Check for Changelog File
@@ -159,12 +164,12 @@ jobs:
           url: ${{ env.JDBC_URL }}
           driver: com.google.cloud.spanner.jdbc.JdbcDriver
           searchPath: ${{ env.SEARCH_PATH }}
-          classpath: ${{ env.WORKSPACE }}/m2-repository/google-cloud-spanner-jdbc-2.5.7.jar:${{ env.WORKSPACE }}/m2-repository/google-cloud-spanner-1.50.0.jar:${{ env.WORKSPACE }}/m2-repository/guava-30.1.1-jre.jar:${{ env.WORKSPACE }}/m2-repository/protobuf-java-3.25.5.jar:${{ env.WORKSPACE }}/m2-repository/protobuf-java-util-3.25.5.jar
+          classpath: /github/workspace/m2-repository/google-cloud-spanner-jdbc-2.5.7.jar:/github/workspace/m2-repository/google-cloud-spanner-1.50.0.jar:/github/workspace/m2-repository/guava-30.1.1-jre.jar:/github/workspace/m2-repository/protobuf-java-3.25.5.jar:/github/workspace/m2-repository/protobuf-java-util-3.25.5.jar
           contextFilter: ${{ inputs.app_env }}
           logLevel: debug
         env:
           JAVA_HOME: /opt/java/openjdk
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ env.WORKSPACE }}/sa-liquibase.json
+          GOOGLE_APPLICATION_CREDENTIALS: /github/workspace/sa-liquibase.json
 
       - name: Output Results
         if: steps.check_sql.outputs.root_xml == 'true'
