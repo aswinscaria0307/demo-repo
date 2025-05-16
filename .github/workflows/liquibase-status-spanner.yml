@@ -37,9 +37,19 @@ jobs:
           echo "Listing files in ${{ env.WORKSPACE }}:"
           ls -la ${{ env.WORKSPACE }}
           echo "Checking for pom.xml:"
-          ls -l ${{ env.WORKSPACE }}/pom.xml || echo "pom.xml not found"
+          if [ -f "${{ env.WORKSPACE }}/pom.xml" ]; then
+            echo "pom.xml found"
+          else
+            echo "Error: pom.xml not found" >&2
+            exit 1
+          fi
           echo "Checking for ${{ env.CHANGE_LOG_FILE }}:"
-          ls -l ${{ env.WORKSPACE }}/${{ env.CHANGE_LOG_FILE }} || echo "changelog-root.xml not found"
+          if [ -f "${{ env.WORKSPACE }}/${{ env.CHANGE_LOG_FILE }}" ]; then
+            echo "${{ env.CHANGE_LOG_FILE }} found"
+          else
+            echo "Error: ${{ env.CHANGE_LOG_FILE }} not found" >&2
+            exit 1
+          fi
         shell: bash
 
       # Set up Java
@@ -54,7 +64,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('pom.xml') }}-v3
+          key: ${{ runner.os }}-maven-${{ hashFiles('pom.xml') }}-v4
           restore-keys: |
             ${{ runner.os }}-maven-
 
@@ -71,6 +81,12 @@ jobs:
           mvn -B dependency:copy-dependencies -Dmdep.outputDirectory=${{ env.WORKSPACE }}/m2-repository -X
           echo "Listing contents of m2-repository:"
           ls -la ${{ env.WORKSPACE }}/m2-repository
+          if [ -f "${{ env.WORKSPACE }}/m2-repository/com/google/cloud/google-cloud-spanner-jdbc/2.5.7/google-cloud-spanner-jdbc-2.5.7.jar" ]; then
+            echo "google-cloud-spanner-jdbc-2.5.7.jar found"
+          else
+            echo "Error: google-cloud-spanner-jdbc-2.5.7.jar not found in m2-repository" >&2
+            exit 1
+          fi
         working-directory: ${{ env.WORKSPACE }}
         shell: bash
 
@@ -87,7 +103,7 @@ jobs:
           echo "Checking specific JAR files:"
           ls -l ${{ env.WORKSPACE }}/m2-repository/com/google/cloud/google-cloud-spanner-jdbc/2.5.7/google-cloud-spanner-jdbc-2.5.7.jar || echo "Spanner JDBC JAR not found"
           ls -l ${{ env.WORKSPACE }}/m2-repository/com/google/cloud/google-cloud-spanner/1.50.0/google-cloud-spanner-1.50.0.jar || echo "Spanner JAR not found"
-          ls -l ${{ env.WORKSPACE }}/m2-repository/com/google/guava/guava/33.3.0-jre/guava-33.3.0-jre.jar || echo "Guava JAR not found"
+          ls -l ${{ env.WORKSPACE }}/m2-repository/com/google/guava/guava/30.1.1-jre/guava-30.1.1-jre.jar || echo "Guava JAR not found"
           ls -l ${{ env.WORKSPACE }}/m2-repository/com/google/protobuf/protobuf-java/3.25.5/protobuf-java-3.25.5.jar || echo "Protobuf Java JAR not found"
           ls -l ${{ env.WORKSPACE }}/m2-repository/com/google/protobuf/protobuf-java-util/3.25.5/protobuf-java-util-3.25.5.jar || echo "Protobuf Java Util JAR not found"
         shell: bash
@@ -113,7 +129,7 @@ jobs:
           url: ${{ env.JDBC_URL }}
           driver: com.google.cloud.spanner.jdbc.JdbcDriver
           searchPath: ${{ env.SEARCH_PATH }}
-          classpath: ${{ env.WORKSPACE }}/m2-repository/com/google/cloud/google-cloud-spanner-jdbc/2.5.7/google-cloud-spanner-jdbc-2.5.7.jar:${{ env.WORKSPACE }}/m2-repository/com/google/cloud/google-cloud-spanner/1.50.0/google-cloud-spanner-1.50.0.jar:${{ env.WORKSPACE }}/m2-repository/com/google/guava/guava/33.3.0-jre/guava-33.3.0-jre.jar:${{ env.WORKSPACE }}/m2-repository/com/google/protobuf/protobuf-java/3.25.5/protobuf-java-3.25.5.jar:${{ env.WORKSPACE }}/m2-repository/com/google/protobuf/protobuf-java-util/3.25.5/protobuf-java-util-3.25.5.jar
+          classpath: ${{ env.WORKSPACE }}/m2-repository/*.jar
           contextFilter: ${{ inputs.app_env }}
           logLevel: debug
         env:
