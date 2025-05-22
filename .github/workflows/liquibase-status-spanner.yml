@@ -65,9 +65,17 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('pom.xml') }}-v14
+          key: ${{ runner.os }}-maven-${{ hashFiles('pom.xml') }}-v15
           restore-keys: |
             ${{ runner.os }}-maven-
+
+      - name: Configure Maven Settings
+        run: |
+          mkdir -p ~/.m2
+          echo '<settings><mirrors><mirror><id>central</id><url>https://repo1.maven.org/maven2</url><mirrorOf>central</mirrorOf></mirror><mirror><id>google</id><url>https://maven.google.com</url><mirrorOf>google</mirrorOf></mirror></mirrors></settings>' > ~/.m2/settings.xml
+          echo "Maven settings configured:"
+          cat ~/.m2/settings.xml
+        shell: bash
 
       - name: Debug Dependency Tree
         run: |
