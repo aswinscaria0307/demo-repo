@@ -65,7 +65,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('pom.xml') }}-v15
+          key: ${{ runner.os }}-maven-${{ hashFiles('pom.xml') }}-v16
           restore-keys: |
             ${{ runner.os }}-maven-
 
@@ -79,7 +79,7 @@ jobs:
 
       - name: Debug Dependency Tree
         run: |
-          mvn -B dependency:tree -X > mvn-tree.log 2>&1
+          mvn -B dependency:tree -U -X > mvn-tree.log 2>&1
           cat mvn-tree.log
           if grep -q "com.google.cloud:google-cloud-spanner-jdbc:jar:2.5.7" mvn-tree.log; then
             echo "google-cloud-spanner-jdbc:2.5.7 found in dependency tree"
@@ -88,6 +88,7 @@ jobs:
             exit 1
           fi
           echo "Checking dependency versions:"
+          MISSING_DEPS=0
           for dep in \
             "com.google.cloud:google-cloud-core:jar:1.94.0" \
             "com.google.cloud:google-cloud-spanner:jar:1.50.0" \
@@ -99,9 +100,13 @@ jobs:
               echo "$dep found"
             else
               echo "Error: $dep not found in dependency tree" >&2
-              exit 1
+              MISSING_DEPS=$((MISSING_DEPS + 1))
             fi
           done
+          if [ $MISSING_DEPS -gt 0 ]; then
+            echo "Error: $MISSING_DEPS dependencies missing in dependency tree" >&2
+            exit 1
+          fi
         working-directory: ${{ env.WORKSPACE }}
         shell: bash
 
