@@ -27,30 +27,6 @@ jobs:
         with:
           fetch-depth: 1
 
-      # - name: Debug Environment
-      #   run: |
-      #     echo "Current working directory:"
-      #     pwd
-      #     echo "WORKSPACE: ${{ env.WORKSPACE }}"
-      #     echo "Listing files in ${{ env.WORKSPACE }}:"
-      #     ls -la ${{ env.WORKSPACE }}
-      #     echo "Checking for pom.xml:"
-      #     if [ -f "${{ env.WORKSPACE }}/pom.xml" ]; then
-      #       echo "pom.xml found"
-      #       cat ${{ env.WORKSPACE }}/pom.xml
-      #     else
-      #       echo "Error: pom.xml not found" >&2
-      #       exit 1
-      #     fi
-      #     echo "Checking for ${{ env.CHANGE_LOG_FILE }}:"
-      #     if [ -f "${{ env.WORKSPACE }}/${{ env.CHANGE_LOG_FILE }}" ]; then
-      #       echo "${{ env.CHANGE_LOG_FILE }} found"
-      #     else
-      #       echo "Error: ${{ env.CHANGE_LOG_FILE }} not found" >&2
-      #       exit 1
-      #     fi
-      #   shell: bash
-
       - name: GCP Authentication
         uses: google-github-actions/auth@v2
         with: 
@@ -61,199 +37,17 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
+ 
+      - name: Export JAVA_HOME
+        run: echo "JAVA_HOME=${{ env.JAVA_HOME }}" >> $GITHUB_ENV
 
       - name: Clear Maven Cache
         run: rm -rf ~/.m2/repository
         shell: bash
 
-      # - name: Cache Maven Dependencies
-      #   uses: actions/cache@v4
-      #   with:
-      #     path: ~/.m2/repository
-      #     key: ${{ runner.os }}-maven-${{ hashFiles('pom.xml') }}-v17
-      #     restore-keys: |
-      #       ${{ runner.os }}-maven-
-
-      # - name: Configure Maven Settings
-      #   run: |
-      #     mkdir -p ~/.m2
-      #     echo '<settings><mirrors><mirror><id>central</id><url>https://repo1.maven.org/maven2</url><mirrorOf>central</mirrorOf></mirror><mirror><id>google</id><url>https://maven.google.com</url><mirrorOf>google</mirrorOf></mirror></mirrors></settings>' > ~/.m2/settings.xml
-      #     echo "Maven settings configured:"
-      #     cat ~/.m2/settings.xml
-      #   shell: bash
-
-      # - name: Debug Dependency Tree
-      #   run: |
-      #     mvn -B dependency:tree -U -X > mvn-tree.log 2>&1
-      #     cat mvn-tree.log
-      #     if grep -q "com.google.cloud:google-cloud-spanner-jdbc:jar:2.5.7" mvn-tree.log; then
-      #       echo "google-cloud-spanner-jdbc:2.5.7 found in dependency tree"
-      #     else
-      #       echo "Error: google-cloud-spanner-jdbc:2.5.7 not found in dependency tree" >&2
-      #       exit 1
-      #     fi
-      #     echo "Checking dependency versions:"
-      #     MISSING_DEPS=0
-      #     for dep in \
-      #       "com.google.cloud:google-cloud-core:jar:1.94.0" \
-      #       "com.google.cloud:google-cloud-spanner:jar:1.50.0" \
-      #       "io.opencensus:opencensus-api:jar:0.28.0" \
-      #       "com.google.api:google-api-common:jar:1.10.1" \
-      #       "com.google.http-client:google-http-client:jar:1.39.2" \
-      #       "com.google.api:gax:jar:1.66.0"; do
-      #       if grep -q "$dep" mvn-tree.log; then
-      #         echo "$dep found"
-      #       else
-      #         echo "Error: $dep not found in dependency tree" >&2
-      #         MISSING_DEPS=$((MISSING_DEPS + 1))
-      #       fi
-      #     done
-      #     if [ $MISSING_DEPS -gt 0 ]; then
-      #       echo "Error: $MISSING_DEPS dependencies missing in dependency tree" >&2
-      #       exit 1
-      #     fi
-      #   working-directory: ${{ env.WORKSPACE }}
-      #   shell: bash
-
-      # - name: Resolve Dependencies
-      #   run: |
-      #     mvn -B dependency:resolve -U -X > mvn-resolve.log 2>&1
-      #     cat mvn-resolve.log
-      #     if [ $? -ne 0 ]; then
-      #       echo "Error: Maven dependency resolution failed" >&2
-      #       echo "Checking for specific dependency errors:"
-      #       grep -i "Could not resolve" mvn-resolve.log || echo "No specific 'Could not resolve' errors found"
-      #       grep -i "Failed to" mvn-resolve.log || echo "No specific 'Failed to' errors found"
-      #       # Retry with clean repository
-      #       echo "Retrying with clean repository..."
-      #       rm -rf ~/.m2/repository
-      #       mvn -B dependency:resolve -U -X > mvn-resolve-retry.log 2>&1
-      #       cat mvn-resolve-retry.log
-      #       if [ $? -ne 0 ]; then
-      #         echo "Error: Maven dependency resolution retry failed" >&2
-      #         exit 1
-      #       fi
-      #     fi
-      #   working-directory: ${{ env.WORKSPACE }}
-      #   shell: bash
-
-      # - name: Copy Dependencies
-      #   run: |
-      #     rm -rf ${{ env.WORKSPACE }}/m2-repository ${{ env.WORKSPACE }}/target
-      #     mkdir -p ${{ env.WORKSPACE }}/m2-repository
-      #     mvn -B dependency:copy-dependencies -Dmdep.outputDirectory=${{ env.WORKSPACE }}/m2-repository -U -X > mvn-copy.log 2>&1
-      #     if [ $? -ne 0 ]; then
-      #       echo "Error: Maven dependency:copy-dependencies failed" >&2
-      #       cat mvn-copy.log
-      #       exit 1
-      #     fi
-      #     echo "Listing contents of m2-repository:"
-      #     ls -la ${{ env.WORKSPACE }}/m2-repository
-      #     echo "Verifying required JARs:"
-      #     for jar in \
-      #       "google-cloud-spanner-jdbc-2.5.7.jar" \
-      #       "google-cloud-spanner-1.50.0.jar" \
-      #       "google-cloud-core-1.94.0.jar" \
-      #       "google-cloud-core-grpc-1.94.0.jar" \
-      #       "guava-30.1.1-jre.jar" \
-      #       "protobuf-java-3.25.5.jar" \
-      #       "protobuf-java-util-3.25.5.jar" \
-      #       "grpc-protobuf-1.43.2.jar" \
-      #       "grpc-stub-1.43.2.jar" \
-      #       "grpc-netty-shaded-1.43.2.jar" \
-      #       "grpc-core-1.43.2.jar" \
-      #       "grpc-api-1.43.2.jar" \
-      #       "opencensus-api-0.28.0.jar" \
-      #       "proto-google-cloud-spanner-v1-1.50.0.jar" \
-      #       "proto-google-cloud-spanner-admin-database-v1-1.50.0.jar" \
-      #       "error_prone_annotations-2.3.4.jar" \
-      #       "google-api-common-1.10.1.jar" \
-      #       "google-auth-library-oauth2-http-0.25.5.jar" \
-      #       "jackson-core-2.12.3.jar" \
-      #       "google-http-client-1.39.2.jar" \
-      #       "gax-1.66.0.jar" \
-      #       "gax-grpc-1.66.0.jar"; do
-      #       if [ -f "${{ env.WORKSPACE }}/m2-repository/$jar" ]; then
-      #         echo "$jar found"
-      #       else
-      #         echo "Error: $jar not found in m2-repository" >&2
-      #         exit 1
-      #       fi
-      #     done
-      #     echo "All required JARs verified successfully"
-      #   working-directory: ${{ env.WORKSPACE }}
-      #   shell: bash
-
       - name: Save Service Account Key
         run: echo "${{ secrets.GCP_SA_KEY }}" > ${{ env.WORKSPACE }}/sa-liquibase.json
         shell: bash
-
-      # - name: Verify JAR Files
-      #   run: |
-      #     echo "Listing all JARs in m2-repository before Liquibase:"
-      #     find ${{ env.WORKSPACE }}/m2-repository -type f -name "*.jar" -ls || echo "No JARs found in m2-repository"
-      #     echo "Checking specific JARs for Liquibase:"
-      #     for jar in \
-      #       "google-cloud-spanner-jdbc-2.5.7.jar" \
-      #       "google-cloud-spanner-1.50.0.jar" \
-      #       "google-cloud-core-1.94.0.jar" \
-      #       "google-cloud-core-grpc-1.94.0.jar" \
-      #       "guava-30.1.1-jre.jar" \
-      #       "protobuf-java-3.25.5.jar" \
-      #       "protobuf-java-util-3.25.5.jar" \
-      #       "grpc-protobuf-1.43.2.jar" \
-      #       "grpc-stub-1.43.2.jar" \
-      #       "grpc-netty-shaded-1.43.2.jar" \
-      #       "grpc-core-1.43.2.jar" \
-      #       "grpc-api-1.43.2.jar" \
-      #       "opencensus-api-0.28.0.jar" \
-      #       "proto-google-cloud-spanner-v1-1.50.0.jar" \
-      #       "proto-google-cloud-spanner-admin-database-v1-1.50.0.jar" \
-      #       "error_prone_annotations-2.3.4.jar" \
-      #       "google-api-common-1.10.1.jar" \
-      #       "google-auth-library-oauth2-http-0.25.5.jar" \
-      #       "jackson-core-2.12.3.jar" \
-      #       "google-http-client-1.39.2.jar" \
-      #       "gax-1.66.0.jar" \
-      #       "gax-grpc-1.66.0.jar"; do
-      #       if [ -f "${{ env.WORKSPACE }}/m2-repository/$jar" ]; then
-      #         echo "$jar exists in m2-repository"
-      #       else
-      #         echo "Error: $jar missing in m2-repository" >&2
-      #         exit 1
-      #       fi
-      #     done
-      #     echo "Checking for ConnectionOptions class in google-cloud-spanner-1.50.0.jar:"
-      #     unzip -l ${{ env.WORKSPACE }}/m2-repository/google-cloud-spanner-1.50.0.jar | grep "com/google/cloud/spanner/connection/ConnectionOptions.class" || { echo "Error: ConnectionOptions class not found in google-cloud-spanner-1.50.0.jar" >&2; exit 1; }
-      #     echo "ConnectionOptions class found"
-      #     CLASSPATH=$(find ${{ env.WORKSPACE }}/m2-repository -name "*.jar" | tr '\n' ':')
-      #     echo "Dynamic classpath for Liquibase:"
-      #     echo "$CLASSPATH"
-      #     IFS=':' read -ra JAR_PATHS <<< "$CLASSPATH"
-      #     for jar_path in "${JAR_PATHS[@]}"; do
-      #       if [ -f "$jar_path" ]; then
-      #         echo "Classpath JAR exists: $jar_path"
-      #       else
-      #         echo "Error: Classpath JAR missing: $jar_path" >&2
-      #         exit 1
-      #       fi
-      #     done
-      #   shell: bash
-
-      # - name: Debug Docker Mount
-      #   run: |
-      #     docker run --rm -v "${{ env.WORKSPACE }}:/github/workspace" ubuntu bash -c "ls -la /github/workspace/m2-repository && find /github/workspace/m2-repository -type f -name '*.jar' -ls"
-      #   shell: bash
-
-      # - name: Check for Changelog File
-      #   id: check_sql
-      #   run: |
-      #     if [ -f "${{ env.WORKSPACE }}/${{ env.CHANGE_LOG_FILE }}" ]; then
-      #       echo "root_xml=true" >> $GITHUB_OUTPUT
-      #     else
-      #       echo "root_xml=false" >> $GITHUB_OUTPUT
-      #     fi
-      #   shell: bash
 
       - name: Run Liquibase Status
         id: liquibase_status
@@ -266,9 +60,8 @@ jobs:
           classpath: https://repo1.maven.org/maven2/com/google/cloud/spanner/google-cloud-spanner-jdbc/2.14.2/google-cloud-spanner-jdbc-2.14.2.jar
           contextFilter: ${{ inputs.app_env }}
           logLevel: debug
-        # env:
-        #   JAVA_HOME: /opt/java/openjdk
-        #   GOOGLE_APPLICATION_CREDENTIALS: /github/workspace/sa-liquibase.json
+        env:
+          JAVA_HOME: /opt/java/openjdk
 
       - name: Output Results
         run: |
