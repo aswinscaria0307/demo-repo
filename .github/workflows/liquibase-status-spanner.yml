@@ -65,7 +65,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('pom.xml') }}-v11
+          key: ${{ runner.os }}-maven-${{ hashFiles('pom.xml') }}-v14
           restore-keys: |
             ${{ runner.os }}-maven-
 
@@ -79,6 +79,21 @@ jobs:
             echo "Error: google-cloud-spanner-jdbc:2.5.7 not found in dependency tree" >&2
             exit 1
           fi
+          echo "Checking dependency versions:"
+          for dep in \
+            "com.google.cloud:google-cloud-core:jar:1.94.0" \
+            "com.google.cloud:google-cloud-spanner:jar:1.50.0" \
+            "io.opencensus:opencensus-api:jar:0.28.0" \
+            "com.google.api:google-api-common:jar:1.10.1" \
+            "com.google.http-client:google-http-client:jar:1.39.2" \
+            "com.google.api:gax:jar:1.66.0"; do
+            if grep -q "$dep" mvn-tree.log; then
+              echo "$dep found"
+            else
+              echo "Error: $dep not found in dependency tree" >&2
+              exit 1
+            fi
+          done
         working-directory: ${{ env.WORKSPACE }}
         shell: bash
 
@@ -97,26 +112,20 @@ jobs:
         run: |
           rm -rf ${{ env.WORKSPACE }}/m2-repository ${{ env.WORKSPACE }}/target
           mkdir -p ${{ env.WORKSPACE }}/m2-repository
-          echo "Running mvn command:"
-          echo "mvn -B dependency:copy-dependencies -Dmdep.outputDirectory=${{ env.WORKSPACE }}/m2-repository -U -X"
           mvn -B dependency:copy-dependencies -Dmdep.outputDirectory=${{ env.WORKSPACE }}/m2-repository -U -X > mvn-copy.log 2>&1
-          cat mvn-copy.log
-          echo "Listing contents of target/dependency:"
-          ls -la ${{ env.WORKSPACE }}/target/dependency || echo "No target/dependency directory"
+          if [ $? -ne 0 ]; then
+            echo "Error: Maven dependency:copy-dependencies failed" >&2
+            cat mvn-copy.log
+            exit 1
+          fi
           echo "Listing contents of m2-repository:"
           ls -la ${{ env.WORKSPACE }}/m2-repository
-          # Fallback: Copy JARs from target/dependency to m2-repository if present
-          if [ -d "${{ env.WORKSPACE }}/target/dependency" ]; then
-            echo "Copying JARs from target/dependency to m2-repository"
-            cp -v ${{ env.WORKSPACE }}/target/dependency/*.jar ${{ env.WORKSPACE }}/m2-repository/ || echo "No JARs to copy"
-          fi
-          echo "Listing contents of m2-repository after fallback copy:"
-          ls -la ${{ env.WORKSPACE }}/m2-repository
+          echo "Verifying required JARs:"
           for jar in \
             "google-cloud-spanner-jdbc-2.5.7.jar" \
             "google-cloud-spanner-1.50.0.jar" \
-            "google-cloud-core-2.3.5.jar" \
-            "google-cloud-core-grpc-2.3.5.jar" \
+            "google-cloud-core-1.94.0.jar" \
+            "google-cloud-core-grpc-1.94.0.jar" \
             "guava-30.1.1-jre.jar" \
             "protobuf-java-3.25.5.jar" \
             "protobuf-java-util-3.25.5.jar" \
@@ -125,10 +134,16 @@ jobs:
             "grpc-netty-shaded-1.43.2.jar" \
             "grpc-core-1.43.2.jar" \
             "grpc-api-1.43.2.jar" \
-            "opencensus-api-0.30.0.jar" \
-            "proto-google-cloud-spanner-v1-6.17.3.jar" \
-            "proto-google-cloud-spanner-admin-database-v1-6.17.3.jar" \
-            "error_prone_annotations-2.10.0.jar"; do
+            "opencensus-api-0.28.0.jar" \
+            "proto-google-cloud-spanner-v1-1.50.0.jar" \
+            "proto-google-cloud-spanner-admin-database-v1-1.50.0.jar" \
+            "error_prone_annotations-2.3.4.jar" \
+            "google-api-common-1.10.1.jar" \
+            "google-auth-library-oauth2-http-0.25.5.jar" \
+            "jackson-core-2.12.3.jar" \
+            "google-http-client-1.39.2.jar" \
+            "gax-1.66.0.jar" \
+            "gax-grpc-1.66.0.jar"; do
             if [ -f "${{ env.WORKSPACE }}/m2-repository/$jar" ]; then
               echo "$jar found"
             else
@@ -136,6 +151,7 @@ jobs:
               exit 1
             fi
           done
+          echo "All required JARs verified successfully"
         working-directory: ${{ env.WORKSPACE }}
         shell: bash
 
@@ -147,12 +163,12 @@ jobs:
         run: |
           echo "Listing all JARs in m2-repository before Liquibase:"
           find ${{ env.WORKSPACE }}/m2-repository -type f -name "*.jar" -ls || echo "No JARs found in m2-repository"
-          echo "Checking specific JARs for Liquibase classpath:"
+          echo "Checking specific JARs for Liquibase:"
           for jar in \
             "google-cloud-spanner-jdbc-2.5.7.jar" \
             "google-cloud-spanner-1.50.0.jar" \
-            "google-cloud-core-2.3.5.jar" \
-            "google-cloud-core-grpc-2.3.5.jar" \
+            "google-cloud-core-1.94.0.jar" \
+            "google-cloud-core-grpc-1.94.0.jar" \
             "guava-30.1.1-jre.jar" \
             "protobuf-java-3.25.5.jar" \
             "protobuf-java-util-3.25.5.jar" \
@@ -161,10 +177,16 @@ jobs:
             "grpc-netty-shaded-1.43.2.jar" \
             "grpc-core-1.43.2.jar" \
             "grpc-api-1.43.2.jar" \
-            "opencensus-api-0.30.0.jar" \
-            "proto-google-cloud-spanner-v1-6.17.3.jar" \
-            "proto-google-cloud-spanner-admin-database-v1-6.17.3.jar" \
-            "error_prone_annotations-2.10.0.jar"; do
+            "opencensus-api-0.28.0.jar" \
+            "proto-google-cloud-spanner-v1-1.50.0.jar" \
+            "proto-google-cloud-spanner-admin-database-v1-1.50.0.jar" \
+            "error_prone_annotations-2.3.4.jar" \
+            "google-api-common-1.10.1.jar" \
+            "google-auth-library-oauth2-http-0.25.5.jar" \
+            "jackson-core-2.12.3.jar" \
+            "google-http-client-1.39.2.jar" \
+            "gax-1.66.0.jar" \
+            "gax-grpc-1.66.0.jar"; do
             if [ -f "${{ env.WORKSPACE }}/m2-repository/$jar" ]; then
               echo "$jar exists in m2-repository"
             else
@@ -172,8 +194,21 @@ jobs:
               exit 1
             fi
           done
-          echo "Classpath to be used:"
-          echo "/github/workspace/m2-repository/google-cloud-spanner-jdbc-2.5.7.jar:/github/workspace/m2-repository/google-cloud-spanner-1.50.0.jar:/github/workspace/m2-repository/google-cloud-core-1.94.0.jar:/github/workspace/m2-repository/google-cloud-core-grpc-1.94.0.jar:/github/workspace/m2-repository/guava-30.1.1-jre.jar:/github/workspace/m2-repository/protobuf-java-3.25.5.jar:/github/workspace/m2-repository/protobuf-java-util-3.25.5.jar:/github/workspace/m2-repository/grpc-protobuf-1.43.2.jar:/github/workspace/m2-repository/grpc-stub-1.43.2.jar:/github/workspace/m2-repository/grpc-netty-shaded-1.43.2.jar:/github/workspace/m2-repository/grpc-core-1.43.2.jar:/github/workspace/m2-repository/grpc-api-1.43.2.jar:/github/workspace/m2-repository/opencensus-api-0.28.0.jar:/github/workspace/m2-repository/proto-google-cloud-spanner-v1-1.50.0.jar:/github/workspace/m2-repository/proto-google-cloud-spanner-admin-database-v1-1.50.0.jar:/github/workspace/m2-repository/error_prone_annotations-2.3.4.jar"
+          echo "Checking for ConnectionOptions class in google-cloud-spanner-1.50.0.jar:"
+          unzip -l ${{ env.WORKSPACE }}/m2-repository/google-cloud-spanner-1.50.0.jar | grep "com/google/cloud/spanner/connection/ConnectionOptions.class" || { echo "Error: ConnectionOptions class not found in google-cloud-spanner-1.50.0.jar" >&2; exit 1; }
+          echo "ConnectionOptions class found"
+          CLASSPATH=$(find ${{ env.WORKSPACE }}/m2-repository -name "*.jar" | tr '\n' ':')
+          echo "Dynamic classpath for Liquibase:"
+          echo "$CLASSPATH"
+          IFS=':' read -ra JAR_PATHS <<< "$CLASSPATH"
+          for jar_path in "${JAR_PATHS[@]}"; do
+            if [ -f "$jar_path" ]; then
+              echo "Classpath JAR exists: $jar_path"
+            else
+              echo "Error: Classpath JAR missing: $jar_path" >&2
+              exit 1
+            fi
+          done
         shell: bash
 
       - name: Debug Docker Mount
@@ -200,7 +235,7 @@ jobs:
           url: ${{ env.JDBC_URL }}
           driver: com.google.cloud.spanner.jdbc.JdbcDriver
           searchPath: ${{ env.SEARCH_PATH }}
-          classpath: /github/workspace/m2-repository/google-cloud-spanner-jdbc-2.5.7.jar:/github/workspace/m2-repository/google-cloud-spanner-1.50.0.jar:/github/workspace/m2-repository/google-cloud-core-2.3.5.jar:/github/workspace/m2-repository/google-cloud-core-grpc-2.3.5.jar:/github/workspace/m2-repository/guava-30.1.1-jre.jar:/github/workspace/m2-repository/protobuf-java-3.25.5.jar:/github/workspace/m2-repository/protobuf-java-util-3.25.5.jar:/github/workspace/m2-repository/grpc-protobuf-1.43.2.jar:/github/workspace/m2-repository/grpc-stub-1.43.2.jar:/github/workspace/m2-repository/grpc-netty-shaded-1.43.2.jar:/github/workspace/m2-repository/grpc-core-1.43.2.jar:/github/workspace/m2-repository/grpc-api-1.43.2.jar:/github/workspace/m2-repository/opencensus-api-0.30.0.jar:/github/workspace/m2-repository/proto-google-cloud-spanner-v1-6.17.3.jar:/github/workspace/m2-repository/proto-google-cloud-spanner-admin-database-v1-6.17.3.jar:/github/workspace/m2-repository/error_prone_annotations-2.10.0.jar
+          classpath: $(find /github/workspace/m2-repository -name '*.jar' | tr '\n' ':')
           contextFilter: ${{ inputs.app_env }}
           logLevel: debug
         env:
