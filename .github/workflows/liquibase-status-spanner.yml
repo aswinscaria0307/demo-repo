@@ -257,7 +257,6 @@ jobs:
 
       - name: Run Liquibase Status
         id: liquibase_status
-        if: steps.check_sql.outputs.root_xml == 'true'
         uses: liquibase-github-actions/status@v4.31.1
         with:
           changelogFile: ${{ env.CHANGE_LOG_FILE }}
@@ -272,7 +271,6 @@ jobs:
         #   GOOGLE_APPLICATION_CREDENTIALS: /github/workspace/sa-liquibase.json
 
       - name: Output Results
-        if: steps.check_sql.outputs.root_xml == 'true'
         run: |
           echo "Changesets:"
           echo "${{ steps.liquibase_status.outputs.changesets }}"
