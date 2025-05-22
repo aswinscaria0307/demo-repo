@@ -65,7 +65,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('pom.xml') }}-v16
+          key: ${{ runner.os }}-maven-${{ hashFiles('pom.xml') }}-v17
           restore-keys: |
             ${{ runner.os }}-maven-
 
@@ -116,7 +116,18 @@ jobs:
           cat mvn-resolve.log
           if [ $? -ne 0 ]; then
             echo "Error: Maven dependency resolution failed" >&2
-            exit 1
+            echo "Checking for specific dependency errors:"
+            grep -i "Could not resolve" mvn-resolve.log || echo "No specific 'Could not resolve' errors found"
+            grep -i "Failed to" mvn-resolve.log || echo "No specific 'Failed to' errors found"
+            # Retry with clean repository
+            echo "Retrying with clean repository..."
+            rm -rf ~/.m2/repository
+            mvn -B dependency:resolve -U -X > mvn-resolve-retry.log 2>&1
+            cat mvn-resolve-retry.log
+            if [ $? -ne 0 ]; then
+              echo "Error: Maven dependency resolution retry failed" >&2
+              exit 1
+            fi
           fi
         working-directory: ${{ env.WORKSPACE }}
         shell: bash
