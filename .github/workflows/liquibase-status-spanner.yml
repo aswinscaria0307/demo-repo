@@ -30,48 +30,49 @@ jobs:
       - name: GCP Authentication
         uses: google-github-actions/auth@v2
         with: 
-         credentials_json: '${{ secrets.GCP_SA_KEY }}'
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
- 
-      - name: Export JAVA_HOME
-        run: echo "JAVA_HOME=${{ env.JAVA_HOME }}" >> $GITHUB_ENV
 
-      - name: Clear Maven Cache
-        run: rm -rf ~/.m2/repository
-        shell: bash
+      - name: Install Maven
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y maven
+
       - name: Download JDBC driver + dependencies
         run: |
-          mkdir -p lib
-          cd lib
- 
-          # Download JARs via Maven (needs Maven installed)
-          apt-get update && apt-get install -y maven
- 
-          # Create temporary pom.xml to resolve dependencies
+          mkdir -p ${{ env.WORKSPACE }}/lib
+          cd ${{ env.WORKSPACE }}/lib
           cat <<EOF > pom.xml
           <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-                            xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-          <modelVersion>4.0.0</modelVersion>
-          <groupId>temp</groupId>
-          <artifactId>temp-project</artifactId>
-          <version>1.0-SNAPSHOT</version>
-          <dependencies>
-          <dependency>
-          <groupId>com.google.cloud</groupId>
-          <artifactId>google-cloud-spanner-jdbc</artifactId>
-          <version>2.14.2</version>
-          </dependency>
-          </dependencies>
+                   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+            <modelVersion>4.0.0</modelVersion>
+            <groupId>temp</groupId>
+            <artifactId>temp-project</artifactId>
+            <version>1.0-SNAPSHOT</version>
+            <dependencies>
+              <dependency>
+                <groupId>com.google.cloud</groupId>
+                <artifactId>google-cloud-spanner-jdbc</artifactId>
+                <version>2.14.2</version>
+              </dependency>
+            </dependencies>
+            <repositories>
+              <repository>
+                <id>central</id>
+                <url>https://repo.maven.apache.org/maven2</url>
+              </repository>
+            </repositories>
           </project>
-                    EOF
- 
-          # Use Maven to copy all required jars into ./lib
-          mvn dependency:copy-dependencies -DoutputDirectory=.
+          EOF
+          mvn dependency:copy-dependencies -DoutputDirectory=${{ env.WORKSPACE }}/lib
+          ls -l ${{ env.WORKSPACE }}/lib  # Debug: List downloaded JARs
+        shell: bash
+
       - name: Save Service Account Key
         run: echo "${{ secrets.GCP_SA_KEY }}" > ${{ env.WORKSPACE }}/sa-liquibase.json
         shell: bash
@@ -84,11 +85,11 @@ jobs:
           url: ${{ env.JDBC_URL }}
           driver: com.google.cloud.spanner.jdbc.JdbcDriver
           searchPath: ${{ env.SEARCH_PATH }}
-          classpath: lib
+          classpath: ${{ env.WORKSPACE }}/lib
           contextFilter: ${{ inputs.app_env }}
           logLevel: debug
         env:
-          JAVA_HOME: /opt/java/openjdk
+          JAVA_HOME: ${{ env.JAVA_HOME }}  # Use the JAVA_HOME set by setup-java
 
       - name: Output Results
         run: |
