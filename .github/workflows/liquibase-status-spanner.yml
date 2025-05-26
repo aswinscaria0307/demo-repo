@@ -43,6 +43,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y maven
 
+      - name: Verify JAVA_HOME
+        run: |
+          echo "JAVA_HOME is set to: $JAVA_HOME"
+          ls -ld $JAVA_HOME
+        shell: bash
+
       - name: Download JDBC driver + dependencies
         run: |
           mkdir -p ${{ env.WORKSPACE }}/lib
@@ -89,7 +95,7 @@ jobs:
           contextFilter: ${{ inputs.app_env }}
           logLevel: debug
         env:
-          JAVA_HOME: ${{ env.JAVA_HOME }}  # Use the JAVA_HOME set by setup-java
+          JAVA_HOME: ${{ env.JAVA_HOME }}  # Use the JAVA_HOME from setup-java
 
       - name: Output Results
         run: |
