@@ -78,7 +78,9 @@ jobs:
             </repositories>
           </project>
           EOF
-          mvn dependency:copy-dependencies -DoutputDirectory=${{ env.WORKSPACE }}/lib -X
+          # Use a clean Maven settings file to avoid decryption issues
+          echo "<settings></settings>" > /tmp/settings.xml
+          mvn dependency:copy-dependencies -DoutputDirectory=${{ env.WORKSPACE }}/lib -s /tmp/settings.xml -X
           ls -l ${{ env.WORKSPACE }}/lib  # Debug: List downloaded JARs
         shell: bash
 
@@ -86,11 +88,6 @@ jobs:
         run: echo "${{ secrets.GCP_SA_KEY }}" > ${{ env.WORKSPACE }}/sa-liquibase.json
         shell: bash
 
-      - name: Verify Service Account Key
-        run: |
-          ls -l ${{ env.WORKSPACE }}/sa-liquibase.json
-          cat ${{ env.WORKSPACE }}/sa-liquibase.json | head -n 2
-        shell: bash
 
       - name: Run Liquibase Status
         id: liquibase_status
