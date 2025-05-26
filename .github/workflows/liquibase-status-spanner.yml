@@ -47,6 +47,7 @@ jobs:
         run: |
           echo "JAVA_HOME is set to: $JAVA_HOME"
           ls -ld $JAVA_HOME
+          # Resolve the symlink to get the actual path
           RESOLVED_JAVA_HOME=$(readlink -f $JAVA_HOME)
           echo "Resolved JAVA_HOME is: $RESOLVED_JAVA_HOME"
         shell: bash
@@ -68,6 +69,11 @@ jobs:
                 <artifactId>google-cloud-spanner-jdbc</artifactId>
                 <version>2.14.2</version>
               </dependency>
+              <dependency>
+                <groupId>com.google.cloud</groupId>
+                <artifactId>liquibase-spanner</artifactId>
+                <version>4.31.1</version>
+              </dependency>
             </dependencies>
             <repositories>
               <repository>
@@ -78,7 +84,7 @@ jobs:
           </project>
           EOF
           mvn dependency:copy-dependencies -DoutputDirectory=${{ env.WORKSPACE }}/lib
-          ls -l ${{ env.WORKSPACE }}/lib
+          ls -l ${{ env.WORKSPACE }}/lib  # Debug: List downloaded JARs
         shell: bash
 
       - name: Save Service Account Key
@@ -96,6 +102,8 @@ jobs:
           classpath: ${{ env.WORKSPACE }}/lib
           contextFilter: ${{ inputs.app_env }}
           logLevel: debug
+        env:
+          JAVA_HOME: ""  # Unset JAVA_HOME to use the container's default Java
 
       - name: Output Results
         run: |
