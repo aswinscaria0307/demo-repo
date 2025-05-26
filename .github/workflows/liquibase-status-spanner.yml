@@ -82,14 +82,14 @@ jobs:
           ls -l ${{ env.WORKSPACE }}/lib  # Debug: List downloaded JARs
         shell: bash
 
+      - name: Save Service Account Key
+        run: echo "${{ secrets.GCP_SA_KEY }}" > ${{ env.WORKSPACE }}/sa-liquibase.json
+        shell: bash
+
       - name: Verify Service Account Key
         run: |
           ls -l ${{ env.WORKSPACE }}/sa-liquibase.json
           cat ${{ env.WORKSPACE }}/sa-liquibase.json | head -n 2
-        shell: bash
-
-      - name: Save Service Account Key
-        run: echo "${{ secrets.GCP_SA_KEY }}" > ${{ env.WORKSPACE }}/sa-liquibase.json
         shell: bash
 
       - name: Run Liquibase Status
