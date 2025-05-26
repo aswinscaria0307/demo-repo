@@ -82,12 +82,18 @@ jobs:
           echo "<settings></settings>" > /tmp/settings.xml
           mvn dependency:copy-dependencies -DoutputDirectory=${{ env.WORKSPACE }}/lib -s /tmp/settings.xml -X
           ls -l ${{ env.WORKSPACE }}/lib  # Debug: List downloaded JARs
+          # Verify the Spanner JDBC driver JAR exists
+          if [ -f ${{ env.WORKSPACE }}/lib/google-cloud-spanner-jdbc-2.14.2.jar ]; then
+            echo "Spanner JDBC driver found"
+          else
+            echo "ERROR: Spanner JDBC driver not found"
+            exit 1
+          fi
         shell: bash
 
       - name: Save Service Account Key
         run: echo "${{ secrets.GCP_SA_KEY }}" > ${{ env.WORKSPACE }}/sa-liquibase.json
         shell: bash
-
 
       - name: Run Liquibase Status
         id: liquibase_status
