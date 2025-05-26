@@ -47,10 +47,8 @@ jobs:
         run: |
           echo "JAVA_HOME is set to: $JAVA_HOME"
           ls -ld $JAVA_HOME
-          # Resolve the symlink to get the actual path
           RESOLVED_JAVA_HOME=$(readlink -f $JAVA_HOME)
           echo "Resolved JAVA_HOME is: $RESOLVED_JAVA_HOME"
-          echo "RESOLVED_JAVA_HOME=$RESOLVED_JAVA_HOME" >> $GITHUB_ENV
         shell: bash
 
       - name: Download JDBC driver + dependencies
@@ -80,7 +78,7 @@ jobs:
           </project>
           EOF
           mvn dependency:copy-dependencies -DoutputDirectory=${{ env.WORKSPACE }}/lib
-          ls -l ${{ env.WORKSPACE }}/lib  # Debug: List downloaded JARs
+          ls -l ${{ env.WORKSPACE }}/lib
         shell: bash
 
       - name: Save Service Account Key
@@ -98,8 +96,6 @@ jobs:
           classpath: ${{ env.WORKSPACE }}/lib
           contextFilter: ${{ inputs.app_env }}
           logLevel: debug
-        env:
-          JAVA_HOME: ${{ env.RESOLVED_JAVA_HOME }}  # Use the resolved JAVA_HOME
 
       - name: Output Results
         run: |
