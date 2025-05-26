@@ -78,8 +78,14 @@ jobs:
             </repositories>
           </project>
           EOF
-          mvn dependency:copy-dependencies -DoutputDirectory=${{ env.WORKSPACE }}/lib
+          mvn dependency:copy-dependencies -DoutputDirectory=${{ env.WORKSPACE }}/lib -X
           ls -l ${{ env.WORKSPACE }}/lib  # Debug: List downloaded JARs
+        shell: bash
+
+      - name: Verify Service Account Key
+        run: |
+          ls -l ${{ env.WORKSPACE }}/sa-liquibase.json
+          cat ${{ env.WORKSPACE }}/sa-liquibase.json | head -n 2
         shell: bash
 
       - name: Save Service Account Key
@@ -94,14 +100,19 @@ jobs:
           url: ${{ env.JDBC_URL }}
           driver: com.google.cloud.spanner.jdbc.JdbcDriver
           searchPath: ${{ env.SEARCH_PATH }}
-          classpath: ${{ env.WORKSPACE }}/lib
+          classpath: /github/workspace/lib
           contextFilter: ${{ inputs.app_env }}
           logLevel: debug
         env:
           JAVA_HOME: ""  # Unset JAVA_HOME to use the container's default Java
 
       - name: Output Results
+        if: always()  # Run even if previous steps fail
         run: |
           echo "Changesets:"
           echo "${{ steps.liquibase_status.outputs.changesets }}"
+          if [ -f liquibase.log ]; then
+            echo "Liquibase Log:"
+            cat liquibase.log
+          fi
         shell: bash
