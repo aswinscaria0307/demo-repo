@@ -69,11 +69,6 @@ jobs:
                 <artifactId>google-cloud-spanner-jdbc</artifactId>
                 <version>2.14.2</version>
               </dependency>
-              <dependency>
-                <groupId>com.google.cloud</groupId>
-                <artifactId>liquibase-spanner</artifactId>
-                <version>4.31.1</version>
-              </dependency>
             </dependencies>
             <repositories>
               <repository>
