@@ -58,7 +58,7 @@ jobs:
           cd ${{ env.WORKSPACE }}/lib
           cat <<EOF > pom.xml
           <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-                   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+                   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
             <modelVersion>4.0.0</modelVersion>
             <groupId>temp</groupId>
             <artifactId>temp-project</artifactId>
@@ -69,11 +69,6 @@ jobs:
                 <artifactId>google-cloud-spanner-jdbc</artifactId>
                 <version>2.14.2</version>
               </dependency>
-              <dependency>
-                <groupId>com.google.cloudspannerecosystem</groupId>
-                <artifactId>liquibase-spanner</artifactId>
-                <version>4.31.1.1</version>
-              </dependency>
             </dependencies>
             <repositories>
               <repository>
@@ -83,24 +78,14 @@ jobs:
             </repositories>
           </project>
           EOF
-          # Use a clean Maven settings file to avoid decryption issues
           echo "<settings></settings>" > /tmp/settings.xml
-          mvn dependency:copy-dependencies -DoutputDirectory=${{ env.WORKSPACE }}/lib -s /tmp/settings.xml -X
-          ls -l ${{ env.WORKSPACE }}/lib  # Debug: List downloaded JARs
-          # Verify the Spanner JDBC driver JAR exists
+          mvn dependency:copy-dependencies -DoutputDirectory="${{ env.WORKSPACE }}/lib" -s /tmp/settings.xml -X
+          ls -l "${{ env.WORKSPACE }}/lib"
           if [ -f "${{ env.WORKSPACE }}/lib/google-cloud-spanner-jdbc-2.14.2.jar" ]; then
             echo "Spanner JDBC driver found"
-            # Check if the driver class exists in the JAR
-            unzip -l ${{ env.WORKSPACE }}/lib/google-cloud-spanner-jdbc-2.14.2.jar | grep com/google/cloud/spanner/jdbc/JdbcDriver || echo "ERROR: Driver class not found in JAR"
+            unzip -l "${{ env.WORKSPACE }}/lib/google-cloud-spanner-jdbc-2.14.2.jar" | grep com/google/cloud/spanner/jdbc/JdbcDriver || echo "ERROR: Driver class not found in JAR"
           else
             echo "ERROR: Spanner JDBC driver not found"
-            exit 1
-          fi
-          # Verify the liquibase-spanner JAR exists
-          if [ -f "${{ env.WORKSPACE }}/lib/liquibase-spanner-4.31.1.1.jar" ]; then
-            echo "Liquibase Spanner extension found"
-          else
-            echo "ERROR: Liquibase Spanner extension not found"
             exit 1
           fi
         shell: bash
@@ -124,7 +109,7 @@ jobs:
           JAVA_HOME: ""  # Unset JAVA_HOME to use the container's default Java
 
       - name: Output Results
-        if: always()  # Run even if previous steps fail
+        if: always()
         run: |
           echo "Changesets:"
           echo "${{ steps.liquibase_status.outputs.changesets }}"
