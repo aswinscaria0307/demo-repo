@@ -14,7 +14,7 @@ on:
 
 env:
   CHANGE_LOG_FILE: sql/changelog-root.xml
-  JDBC_URL: jdbc:cloudspanner:/projects/${{ vars.GCP_PROJECT_ID }}/instances/${{ inputs.spanner_instance }}/databases/demo_liquibase?credentials=/github/workspace/sa-liquibase.json
+  JDBC_URL: jdbc:cloudspanner:/projects/${{ vars.GCP_PROJECT_ID }}/instances/${{ inputs.spanner_instance }}/databases/demo_liquibase?credentials=/github/workspace/sa-credential
   SEARCH_PATH: sql
   WORKSPACE: ${{ github.workspace }}
 
@@ -91,7 +91,7 @@ jobs:
           if [ -f "${{ env.WORKSPACE }}/lib/google-cloud-spanner-jdbc-2.14.2.jar" ]; then
             echo "Spanner JDBC driver found"
             # Check if the driver class exists in the JAR
-            unzip -l ${{ env.WORKSPACE }}/lib/google-cloud-spanner-jdbc-2.14.2.jar | grep com/google.cloud.spanner.jdbc.JdbcDriver || echo "ERROR: Driver class not found in JAR"
+            unzip -l ${{ env.WORKSPACE }}/lib/google-cloud-spanner-jdbc-2.14.2.jar | grep com/google/cloud/spanner/jdbc/JdbcDriver || echo "ERROR: Driver class not found in JAR"
           else
             echo "ERROR: Spanner JDBC driver not found"
             exit 1
@@ -120,7 +120,6 @@ jobs:
           classpath: /github/workspace/lib
           contextFilter: ${{ inputs.app_env }}
           logLevel: debug
-          databaseClass: com.google.cloud.spanner.liquibase.SpannerDatabase
         env:
           JAVA_HOME: ""  # Unset JAVA_HOME to use the container's default Java
 
