@@ -58,7 +58,7 @@ jobs:
           rm -f spanner-jdbc-driver.jar
           cat <<EOF > pom.xml
           <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-                   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0">
+                   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
             <modelVersion>4.0.0</modelVersion>
             <groupId>com.example</groupId>
             <artifactId>temp</artifactId>
@@ -109,19 +109,20 @@ jobs:
           ls -l "${{ github.workspace }}/lib/target/dependency"
           docker run --rm \
             -v "${{ github.workspace }}:/github/workspace" \
-            liquibase/liquibase:4.30.0 \
-            bash -c "echo 'Listing contents of /github/workspace/lib in container:' && ls -l /github/workspace/lib; echo 'Listing contents of /github/workspace/lib/target/dependency in container:' && ls -l /github/workspace/lib/target/dependency; echo 'Working directory:' && pwd; echo 'Checking classpath accessibility:' && ls -l /github/workspace/lib/target/dependency/google-cloud-spanner-jdbc-2.30.1.jar; echo 'Java classpath:' && java -cp /github/workspace/lib/target/dependency/* -version"
+            --workdir /github/workspace \
+            liquibase/liquibase:4.32.0 \
+            bash -c "echo 'Listing contents of /github/workspace/lib in container:' && ls -l /github/workspace/lib; echo 'Listing contents of /github/workspace/lib/target/dependency in container:' && ls -l /github/workspace/lib/target/dependency; echo 'Working directory:' && pwd; echo 'Checking classpath accessibility:' && ls -l /github/workspace/lib/target/dependency/google-cloud-spanner-jdbc-2.30.1.jar; echo 'Java classpath test:' && java -cp \$(find /github/workspace/lib/target/dependency -name '*.jar' | tr '\n' ':') -version; echo 'Liquibase classpath test:' && liquibase --classpath=/github/workspace/lib/target/dependency --version; echo 'Driver availability test:' && java -cp /github/workspace/lib/target/dependency/google-cloud-spanner-jdbc-2.30.1.jar com.google.cloud.spanner.jdbc.JdbcDriver"
         shell: bash
 
       - name: Run Liquibase Status
         id: liquibase_status
-        uses: liquibase-github-actions/status@v4.30.0
+        uses: liquibase-github-actions/status@v4.32.0
         with:
           changelogFile: ${{ env.CHANGE_LOG_FILE }}
           url: "${{ env.JDBC_URL }}"
           driver: com.google.cloud.spanner.jdbc.JdbcDriver
           searchPath: "${{ env.SEARCH_PATH }}"
-          classpath: /github/workspace/lib/target/dependency/google-cloud-spanner-jdbc-2.30.1.jar
+          classpath: /github/workspace/lib/target/dependency
           contextFilter: ${{ inputs.app_env }}
           logLevel: debug
         env:
@@ -130,7 +131,7 @@ jobs:
       - name: Run Liquibase Status Manually
         if: failure()
         run: |
-          curl -L https://github.com/liquibase/liquibase/releases/download/v4.30.0/liquibase-4.30.0.tar.gz | tar -xz -C /tmp
+          curl -L https://github.com/liquibase/liquibase/releases/download/v4.32.0/liquibase-4.32.0.tar.gz | tar -xz -C /tmp
           export PATH=/tmp:$PATH
           CLASSPATH=$(find ${{ github.workspace }}/lib/target/dependency -name '*.jar' | tr '\n' ':')
           liquibase \
