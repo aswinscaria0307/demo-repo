@@ -47,7 +47,6 @@ jobs:
         run: |
           echo "JAVA_HOME is set to: $JAVA_HOME"
           ls -l "$JAVA_HOME"
-          # Resolve the symlink to get the actual path
           RESOLVED_JAVA_HOME=$(readlink -f "$JAVA_HOME")
           echo "Resolved JAVA_HOME: $RESOLVED_JAVA_HOME"
         shell: bash
@@ -56,11 +55,10 @@ jobs:
         run: |
           mkdir -p "${{ env.WORKSPACE }}/lib"
           cd "${{ env.WORKSPACE }}/lib"
-          # Clean up unexpected files
           rm -f spanner-jdbc-driver.jar
           cat <<EOF > pom.xml
           <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-                   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+                   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0">
             <modelVersion>4.0.0</modelVersion>
             <groupId>com.example</groupId>
             <artifactId>temp</artifactId>
@@ -109,11 +107,10 @@ jobs:
           ls -l "${{ github.workspace }}/lib"
           echo "Listing contents of ${{ github.workspace }}/lib/target/dependency in host:"
           ls -l "${{ github.workspace }}/lib/target/dependency"
-          # Run a command in the Liquibase Docker image to check classpath
           docker run --rm \
             -v "${{ github.workspace }}:/github/workspace" \
             liquibase/liquibase:4.30.0 \
-            bash -c "echo 'Listing contents of /github/workspace/lib in container:' && ls -l /github/workspace/lib; echo 'Listing contents of /github/workspace/lib/target/dependency in container:' && ls -l /github/workspace/lib/target/dependency; echo 'Working directory:' && pwd; echo 'Checking classpath accessibility:' && ls -l /github/workspace/lib/target/dependency/google-cloud-spanner-jdbc-2.30.1.jar"
+            bash -c "echo 'Listing contents of /github/workspace/lib in container:' && ls -l /github/workspace/lib; echo 'Listing contents of /github/workspace/lib/target/dependency in container:' && ls -l /github/workspace/lib/target/dependency; echo 'Working directory:' && pwd; echo 'Checking classpath accessibility:' && ls -l /github/workspace/lib/target/dependency/google-cloud-spanner-jdbc-2.30.1.jar; echo 'Java classpath:' && java -cp /github/workspace/lib/target/dependency/* -version"
         shell: bash
 
       - name: Run Liquibase Status
@@ -124,28 +121,28 @@ jobs:
           url: "${{ env.JDBC_URL }}"
           driver: com.google.cloud.spanner.jdbc.JdbcDriver
           searchPath: "${{ env.SEARCH_PATH }}"
-          classpath: /github/workspace/lib/target/dependency
+          classpath: /github/workspace/lib/target/dependency/google-cloud-spanner-jdbc-2.30.1.jar
           contextFilter: ${{ inputs.app_env }}
           logLevel: debug
         env:
           JAVA_HOME: ""
 
       - name: Run Liquibase Status Manually
+        if: failure()
         run: |
-            # Install Liquibase CLI
-            curl -L https://github.com/liquibase/liquibase/releases/download/v4.30.0/liquibase-4.30.0.tar.gz | tar -xz -C /tmp
-            export PATH=/tmp:$PATH
-            # Run Liquibase status
-            liquibase \
-              --changelog-file="${{ env.CHANGE_LOG_FILE }}" \
-              --url="${{ env.JDBC_URL }}" \
-              --driver=com.google.cloud.spanner.jdbc.JdbcDriver \
-              --search-path="${{ env.SEARCH_PATH }}" \
-              --classpath="${{ github.workspace }}/lib/target/dependency" \
-              --context-filter="${{ inputs.app_env }}" \
-              --log-level=debug \
-              status --verbose > liquibase_manual.log
-            cat liquibase_manual.log
+          curl -L https://github.com/liquibase/liquibase/releases/download/v4.30.0/liquibase-4.30.0.tar.gz | tar -xz -C /tmp
+          export PATH=/tmp:$PATH
+          CLASSPATH=$(find ${{ github.workspace }}/lib/target/dependency -name '*.jar' | tr '\n' ':')
+          liquibase \
+            --changelog-file="${{ env.CHANGE_LOG_FILE }}" \
+            --url="${{ env.JDBC_URL }}" \
+            --driver=com.google.cloud.spanner.jdbc.JdbcDriver \
+            --search-path="${{ env.SEARCH_PATH }}" \
+            --classpath="$CLASSPATH" \
+            --context-filter="${{ inputs.app_env }}" \
+            --log-level=debug \
+            status --verbose > liquibase_manual.log
+          cat liquibase_manual.log
         shell: bash
 
       - name: Output Results
@@ -156,5 +153,9 @@ jobs:
           if [ -f liquibase.log ]; then
             echo "Liquibase Log:"
             cat liquibase.log
+          fi
+          if [ -f liquibase_manual.log ]; then
+            echo "Manual Liquibase Log:"
+            cat liquibase_manual.log
           fi
         shell: bash
