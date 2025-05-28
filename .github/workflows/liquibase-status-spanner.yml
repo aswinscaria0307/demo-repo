@@ -49,13 +49,15 @@ jobs:
           ls -l "$JAVA_HOME"
           # Resolve the symlink to get the actual path
           RESOLVED_JAVA_HOME=$(readlink -f "$JAVA_HOME")
-          echo "Resolved JAVA_HOME is: $RESOLVED_JAVA_HOME"
+          echo "Resolved JAVA_HOME: $RESOLVED_JAVA_HOME"
         shell: bash
 
       - name: Download JDBC driver
         run: |
           mkdir -p "${{ env.WORKSPACE }}/lib"
           cd "${{ env.WORKSPACE }}/lib"
+          # Clean up unexpected files
+          rm -f spanner-jdbc-driver.jar
           cat <<EOF > pom.xml
           <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
@@ -79,11 +81,12 @@ jobs:
           </project>
           EOF
           echo "<settings></settings>" > /tmp/settings.xml
-          mvn dependency:copy-dependencies -C
+          mvn dependency:copy-dependencies -s /tmp/settings.xml
           ls -l "${{ env.WORKSPACE }}/lib"
-          if [ -f "${{ env.WORKSPACE }}/lib/google-cloud-spanner-jdbc-2.30.1.jar" ]; then
+          ls -l "${{ env.WORKSPACE }}/lib/target/dependency"
+          if [ -f "${{ env.WORKSPACE }}/lib/target/dependency/google-cloud-spanner-jdbc-2.30.1.jar" ]; then
             echo "Spanner JDBC driver found"
-            unzip -l "${{ env.WORKSPACE }}/lib/google-cloud-spanner-jdbc-2.30.1.jar" | grep com/google/cloud/spanner/jdbc/JdbcDriver || echo "ERROR: Driver class not found in JAR"
+            unzip -l "${{ env.WORKSPACE }}/lib/target/dependency/google-cloud-spanner-jdbc-2.30.1.jar" | grep com/google/cloud/spanner/jdbc/JdbcDriver || echo "ERROR: Driver class not found in JAR"
           else
             echo "ERROR: Spanner JDBC driver not found"
             exit 1
@@ -104,11 +107,13 @@ jobs:
         run: |
           echo "Listing contents of ${{ github.workspace }}/lib in host:"
           ls -l "${{ github.workspace }}/lib"
+          echo "Listing contents of ${{ github.workspace }}/lib/target/dependency in host:"
+          ls -l "${{ github.workspace }}/lib/target/dependency"
           # Run a command in the Liquibase Docker image to check classpath
           docker run --rm \
             -v "${{ github.workspace }}:/github/workspace" \
             liquibase/liquibase:4.30.0 \
-            bash -c "echo 'Listing contents of /github/workspace/lib in container:' && ls -l /github/workspace/lib; echo 'Working directory:' && pwd"
+            bash -c "echo 'Listing contents of /github/workspace/lib in container:' && ls -l /github/workspace/lib; echo 'Listing contents of /github/workspace/lib/target/dependency in container:' && ls -l /github/workspace/lib/target/dependency; echo 'Working directory:' && pwd"
         shell: bash
 
       - name: Run Liquibase Status
@@ -119,7 +124,7 @@ jobs:
           url: "${{ env.JDBC_URL }}"
           driver: com.google.cloud.spanner.jdbc.JdbcDriver
           searchPath: "${{ env.SEARCH_PATH }}"
-          classpath: lib
+          classpath: lib/target/dependency
           contextFilter: ${{ inputs.app_env }}
           logLevel: debug
         env:
@@ -131,7 +136,7 @@ jobs:
           echo "Changesets:"
           echo "${{ steps.liquibase_status.outputs.output }}"
           if [ -f liquibase.log ]; then
-            echo "Liquibase log:"
+            echo "Liquibase Log:"
             cat liquibase.log
           fi
         shell: bash
