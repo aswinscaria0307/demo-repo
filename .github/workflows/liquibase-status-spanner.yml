@@ -14,7 +14,7 @@ on:
 
 env:
   CHANGE_LOG_FILE: sql/changelog-root.xml
-  JDBC_URL: jdbc:cloudspanner:/projects/${{ vars.GCP_PROJECT_ID }}/instances/${{ inputs.spanner_instance }}/databases/demo_liquibase?credentials=/github/workspace/lib/sa-credential
+  JDBC_URL: jdbc:cloudspanner:/projects/${{ vars.GCP_PROJECT_ID }}/instances/${{ inputs.spanner_instance }}/databases/demo_liquibase?credentials=/github/workspace/gha-creds.json
   SEARCH_PATH: sql
   WORKSPACE: ${{ github.workspace }}
 
@@ -31,6 +31,9 @@ jobs:
         uses: google-github-actions/auth@v2
         with:
           credentials_json: '${{ secrets.GCP_SA_KEY }}'
+          export_environment_variables: true
+          create_credentials_file: true
+          credentials_file_path: ${{ github.workspace }}/gha-creds.json
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -119,16 +122,16 @@ jobs:
           docker run --rm \
             -v "${{ github.workspace }}:/github/workspace" \
             --workdir /github/workspace \
-            -e INPUT_CLASSPATH="/github/workspace/lib/target/dependency" \
+            -e INPUT_CLASSPATH="$(find ${{ github.workspace }}/lib/target/dependency -name '*.jar' | tr '\n' ':')" \
             -e INPUT_CHANGELOGFILE="${{ env.CHANGE_LOG_FILE }}" \
             -e INPUT_URL="${{ env.JDBC_URL }}" \
             -e INPUT_DRIVER="com.google.cloud.spanner.jdbc.JdbcDriver" \
             -e INPUT_SEARCHPATH="${{ env.SEARCH_PATH }}" \
             -e INPUT_CONTEXTS="${{ inputs.app_env }}" \
             -e INPUT_LOGLEVEL="debug" \
-            -e INPUT_INCLUDESYSTEMCLASSPATH="true" \
+            -e INPUT_INCLUDESYSTEMCLASSPATH="false" \
             liquibase/liquibase:4.32.0 \
-            bash -c "echo 'Effective command:'; liquibase --classpath=/github/workspace/lib/target/dependency --driver=com.google.cloud.spanner.jdbc.JdbcDriver --url='${{ env.JDBC_URL }}' --search-path=${{ env.SEARCH_PATH }} --changelog-file=${{ env.CHANGE_LOG_FILE }} --contexts=${{ inputs.app_env }} --log-level=debug --includeSystemClasspath=true status --verbose"
+            bash -c "echo 'Effective command:'; liquibase --classpath=\$(find /github/workspace/lib/target/dependency -name '*.jar' | tr '\n' ':') --driver=com.google.cloud.spanner.jdbc.JdbcDriver --url='${{ env.JDBC_URL }}' --search-path=${{ env.SEARCH_PATH }} --changelog-file=${{ env.CHANGE_LOG_FILE }} --contexts=${{ inputs.app_env }} --log-level=debug --includeSystemClasspath=false status --verbose"
         shell: bash
 
       - name: Run Liquibase Status
@@ -142,7 +145,7 @@ jobs:
           classpath: /github/workspace/lib/target/dependency
           contexts: ${{ inputs.app_env }}
           logLevel: debug
-          includeSystemClasspath: true
+          includeSystemClasspath: false
         env:
           JAVA_HOME: ""
 
@@ -160,7 +163,7 @@ jobs:
             --classpath="$CLASSPATH" \
             --contexts="${{ inputs.app_env }}" \
             --log-level=debug \
-            --includeSystemClasspath=true \
+            --includeSystemClasspath=false \
             status --verbose > liquibase_manual.log
           cat liquibase_manual.log
         shell: bash
