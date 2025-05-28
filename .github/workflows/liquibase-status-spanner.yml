@@ -28,12 +28,12 @@ jobs:
           fetch-depth: 1
 
       - name: GCP Authentication
+        id: auth
         uses: google-github-actions/auth@v2
         with:
           credentials_json: '${{ secrets.GCP_SA_KEY }}'
           export_environment_variables: true
           create_credentials_file: true
-          credentials_file_path: ${{ github.workspace }}/gha-creds.json
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -95,13 +95,18 @@ jobs:
         shell: bash
 
       - name: Save Service Account Key
-        run: echo "${{ secrets.GCP_SA_KEY }}" > "${{ env.WORKSPACE }}/lib/sa-credential"
+        run: echo "${{ secrets.GCP_SA_KEY }}" > "${{ env.WORKSPACE }}/gha-creds.json"
         shell: bash
 
       - name: Verify Service Account
         run: |
-          ls -l "${{ env.WORKSPACE }}/lib/sa-credential"
-          cat "${{ env.WORKSPACE }}/lib/sa-credential" | head -n 2
+          ls -l "${{ env.WORKSPACE }}/gha-creds.json"
+          cat "${{ env.WORKSPACE }}/gha-creds.json" | head -n 2
+          docker run --rm \
+            -v "${{ github.workspace }}:/github/workspace" \
+            --workdir /github/workspace \
+            liquibase/liquibase:4.32.0 \
+            bash -c "ls -l /github/workspace/gha-creds.json || echo 'Credentials file not found'; cat /github/workspace/gha-creds.json | head -n 2 || echo 'Cannot read credentials file'"
         shell: bash
 
       - name: Debug Classpath
@@ -142,7 +147,7 @@ jobs:
           url: "${{ env.JDBC_URL }}"
           driver: com.google.cloud.spanner.jdbc.JdbcDriver
           searchPath: "${{ env.SEARCH_PATH }}"
-          classpath: /github/workspace/lib/target/dependency
+          classpath: "$(find ${{ github.workspace }}/lib/target/dependency -name '*.jar' | tr '\n' ':')"
           contexts: ${{ inputs.app_env }}
           logLevel: debug
           includeSystemClasspath: false
@@ -156,13 +161,13 @@ jobs:
           export PATH=/tmp:$PATH
           CLASSPATH=$(find ${{ github.workspace }}/lib/target/dependency -name '*.jar' | tr '\n' ':')
           liquibase \
-            --changelog-file="${{ env.CHANGE_LOG_FILE }}" \
+            --changelogFile="${{ env.CHANGE_LOG_FILE }}" \
             --url="${{ env.JDBC_URL }}" \
             --driver=com.google.cloud.spanner.jdbc.JdbcDriver \
-            --search-path="${{ env.SEARCH_PATH }}" \
+            --searchPath="${{ env.SEARCH_PATH }}" \
             --classpath="$CLASSPATH" \
             --contexts="${{ inputs.app_env }}" \
-            --log-level=debug \
+            --logLevel=debug \
             --includeSystemClasspath=false \
             status --verbose > liquibase_manual.log
           cat liquibase_manual.log
@@ -173,12 +178,3 @@ jobs:
         run: |
           echo "Changesets:"
           echo "${{ steps.liquibase_status.outputs.output }}"
-          if [ -f liquibase.log ]; then
-            echo "Liquibase Log:"
-            cat liquibase.log
-          fi
-          if [ -f liquibase_manual.log ]; then
-            echo "Manual Liquibase Log:"
-            cat liquibase_manual.log
-          fi
-        shell: bash
