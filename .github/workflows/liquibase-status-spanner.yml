@@ -130,6 +130,24 @@ jobs:
         env:
           JAVA_HOME: ""
 
+      - name: Run Liquibase Status Manually
+        run: |
+            # Install Liquibase CLI
+            curl -L https://github.com/liquibase/liquibase/releases/download/v4.30.0/liquibase-4.30.0.tar.gz | tar -xz -C /tmp
+            export PATH=/tmp:$PATH
+            # Run Liquibase status
+            liquibase \
+              --changelog-file="${{ env.CHANGE_LOG_FILE }}" \
+              --url="${{ env.JDBC_URL }}" \
+              --driver=com.google.cloud.spanner.jdbc.JdbcDriver \
+              --search-path="${{ env.SEARCH_PATH }}" \
+              --classpath="${{ github.workspace }}/lib/target/dependency" \
+              --context-filter="${{ inputs.app_env }}" \
+              --log-level=debug \
+              status --verbose > liquibase_manual.log
+            cat liquibase_manual.log
+        shell: bash
+
       - name: Output Results
         if: always()
         run: |
