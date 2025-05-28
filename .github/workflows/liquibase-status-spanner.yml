@@ -107,13 +107,13 @@ jobs:
           # Run a command in the same Docker image to check classpath
           docker run --rm \
             -v "/github/workspace/lib:/github/workspace/lib" \
-            liquibase/liquibase:4.31.1 \
+            liquibase/liquibase:4.30.0 \
             bash -c "echo 'Listing contents of /github/workspace/lib in container:' && ls -l /github/workspace/lib"
         shell: bash
 
       - name: Run Liquibase Status
         id: liquibase_status
-        uses: liquibase-github-actions/status@v4.31.1
+        uses: liquibase-github-actions/status@v4.30.0
         with:
           changelogFile: ${{ env.CHANGE_LOG_FILE }}
           url: ${{ env.JDBC_URL }}
