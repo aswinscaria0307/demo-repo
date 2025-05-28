@@ -14,7 +14,7 @@ on:
 
 env:
   CHANGE_LOG_FILE: sql/changelog-root.xml
-  JDBC_URL: jdbc:cloudspanner:/projects/${{ vars.GCP_PROJECT_ID }}/instances/${{ inputs.spanner_instance }}/databases/demo_liquibase?credentials=/github/workspace/sa-credential
+  JDBC_URL: jdbc:cloudspanner:/projects/${{ vars.GCP_PROJECT_ID }}/instances/${{ inputs.spanner_instance }}/databases/demo_liquibase?credentials=/github/workspace/lib/sa-credential
   SEARCH_PATH: sql
   WORKSPACE: ${{ github.workspace }}
 
@@ -52,7 +52,7 @@ jobs:
           echo "Resolved JAVA_HOME is: $RESOLVED_JAVA_HOME"
         shell: bash
 
-      - name: Download JDBC driver + dependencies
+      - name: Download JDBC driver
         run: |
           mkdir -p ${{ env.WORKSPACE }}/lib
           cd ${{ env.WORKSPACE }}/lib
@@ -91,7 +91,24 @@ jobs:
         shell: bash
 
       - name: Save Service Account Key
-        run: echo "${{ secrets.GCP_SA_KEY }}" > ${{ env.WORKSPACE }}/sa-liquibase.json
+        run: echo "${{ secrets.GCP_SA_KEY }}" > "${{ env.WORKSPACE }}/lib/sa-credential"
+        shell: bash
+
+      - name: Verify Service Account
+        run: |
+          ls -l "${{ env.WORKSPACE }}/lib/sa-credential"
+          cat "${{ env.WORKSPACE }}/lib/sa-credential" | head -n 2
+        shell: bash
+
+      - name: Debug Classpath
+        run: |
+          echo "Listing contents of /github/workspace/lib in host:"
+          ls -l /github/workspace/lib
+          # Run a command in the same Docker image to check classpath
+          docker run --rm \
+            -v "/github/workspace/lib:/github/workspace/lib" \
+            liquibase/liquibase:4.31.1 \
+            bash -c "echo 'Listing contents of /github/workspace/lib in container:' && ls -l /github/workspace/lib"
         shell: bash
 
       - name: Run Liquibase Status
@@ -106,7 +123,7 @@ jobs:
           contextFilter: ${{ inputs.app_env }}
           logLevel: debug
         env:
-          JAVA_HOME: ""  # Unset JAVA_HOME to use the container's default Java
+          JAVA_HOME: ""
 
       - name: Output Results
         if: always()
