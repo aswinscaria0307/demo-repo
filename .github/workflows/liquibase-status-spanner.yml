@@ -111,24 +111,24 @@ jobs:
             -v "${{ github.workspace }}:/github/workspace" \
             --workdir /github/workspace \
             liquibase/liquibase:4.32.0 \
-            bash -c "echo 'Listing contents of /github/workspace/lib in container:' && ls -l /github/workspace/lib; echo 'Listing contents of /github/workspace/lib/target/dependency in container:' && ls -l /github/workspace/lib/target/dependency; echo 'Working directory:' && pwd; echo 'Checking classpath accessibility:' && ls -l /github/workspace/lib/target/dependency/google-cloud-spanner-jdbc-2.30.1.jar; echo 'Java classpath test:' && java -cp \$(find /github/workspace/lib/target/dependency -name '*.jar' | tr '\n' ':') -version; echo 'Liquibase classpath test:' && liquibase --classpath=/github/workspace/lib/target/dependency --version; echo 'Driver availability test:' && java -cp \$(find /github/workspace/lib/target/dependency -name '*.jar' | tr '\n' ':') com.google.cloud.spanner.jdbc.JdbcDriver"
+            bash -c "echo 'Listing contents of /github/workspace/lib in container:' && ls -l /github/workspace/lib; echo 'Listing contents of /github/workspace/lib/target/dependency in container:' && ls -l /github/workspace/lib/target/dependency; echo 'Working directory:' && pwd; echo 'Checking classpath accessibility:' && ls -l /github/workspace/lib/target/dependency/google-cloud-spanner-jdbc-2.30.1.jar; echo 'Java classpath test:' && java -cp \$(find /github/workspace/lib/target/dependency -name '*.jar' | tr '\n' ':') -version; echo 'Liquibase classpath test:' && liquibase --classpath=/github/workspace/lib/target/dependency --version; echo 'Driver availability test:' && liquibase --classpath=/github/workspace/lib/target/dependency --driver=com.google.cloud.spanner.jdbc.JdbcDriver --url='jdbc:cloudspanner:/projects/dummy-project/instances/dummy-instance/databases/dummy-db' status --verbose || echo 'Driver test failed, check logs above'"
         shell: bash
 
       - name: Debug Liquibase Action
         run: |
           docker run --rm \
             -v "${{ github.workspace }}:/github/workspace" \
-            --workdir /github/workspace \
-            -e INPUT_CLASSPATH="/github/workspace/lib/target/dependency/google-cloud-spanner-jdbc-2.30.1.jar:/github/workspace/lib/target/dependency/google-cloud-spanner-6.93.0.jar:/github/workspace/lib/target/dependency/guava-33.4.0-jre.jar:/github/workspace/lib/target/dependency/protobuf-java-3.25.5.jar" \
+            --workdir /github/workspace" \
+            -e INPUT_CLASSPATH="/github/workspace/lib/target/dependency" \
             -e INPUT_CHANGELOGFILE="${{ env.CHANGE_LOG_FILE }}" \
             -e INPUT_URL="${{ env.JDBC_URL }}" \
             -e INPUT_DRIVER="com.google.cloud.spanner.jdbc.JdbcDriver" \
             -e INPUT_SEARCHPATH="${{ env.SEARCH_PATH }}" \
-            -e INPUT_CONTEXTFILTER="${{ inputs.app_env }}" \
+            -e INPUT_CONTEXTS="${{ inputs.app_env }}" \
             -e INPUT_LOGLEVEL="debug" \
             -e INPUT_INCLUDESYSTEMCLASSPATH="true" \
             liquibase/liquibase:4.32.0 \
-            bash -c "echo 'Effective command:'; liquibase --classpath=/github/workspace/lib/target/dependency/google-cloud-spanner-jdbc-2.30.1.jar:/github/workspace/lib/target/dependency/google-cloud-spanner-6.93.0.jar:/github/workspace/lib/target/dependency/guava-33.4.0-jre.jar:/github/workspace/lib/target/dependency/protobuf-java-3.25.5.jar --driver=com.google.cloud.spanner.jdbc.JdbcDriver --url='${{ env.JDBC_URL }}' --search-path=${{ env.SEARCH_PATH }} --changelog-file=${{ env.CHANGE_LOG_FILE }} --context-filter=${{ inputs.app_env }} --log-level=debug --includeSystemClasspath=true status --verbose"
+            bash -c "echo 'Effective command:'; liquibase --classpath=/github/workspace/lib/target/dependency --driver=com.google.cloud.spanner.jdbc.JdbcDriver --url='${{ env.JDBC_URL }}' --search-path=${{ env.SEARCH_PATH }} --changelog-file=${{ env.CHANGE_LOG_FILE }} --contexts=${{ inputs.app_env }} --log-level=debug --includeSystemClasspath=true status --verbose"
         shell: bash
 
       - name: Run Liquibase Status
@@ -139,8 +139,8 @@ jobs:
           url: "${{ env.JDBC_URL }}"
           driver: com.google.cloud.spanner.jdbc.JdbcDriver
           searchPath: "${{ env.SEARCH_PATH }}"
-          classpath: /github/workspace/lib/target/dependency/google-cloud-spanner-jdbc-2.30.1.jar:/github/workspace/lib/target/dependency/google-cloud-spanner-6.93.0.jar:/github/workspace/lib/target/dependency/guava-33.4.0-jre.jar:/github/workspace/lib/target/dependency/protobuf-java-3.25.5.jar
-          contextFilter: ${{ inputs.app_env }}
+          classpath: /github/workspace/lib/target/dependency
+          contexts: ${{ inputs.app_env }}
           logLevel: debug
           includeSystemClasspath: true
         env:
@@ -158,7 +158,7 @@ jobs:
             --driver=com.google.cloud.spanner.jdbc.JdbcDriver \
             --search-path="${{ env.SEARCH_PATH }}" \
             --classpath="$CLASSPATH" \
-            --context-filter="${{ inputs.app_env }}" \
+            --contexts="${{ inputs.app_env }}" \
             --log-level=debug \
             --includeSystemClasspath=true \
             status --verbose > liquibase_manual.log
