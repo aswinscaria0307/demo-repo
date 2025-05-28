@@ -118,7 +118,7 @@ jobs:
         run: |
           docker run --rm \
             -v "${{ github.workspace }}:/github/workspace" \
-            --workdir /github/workspace" \
+            --workdir /github/workspace \
             -e INPUT_CLASSPATH="/github/workspace/lib/target/dependency" \
             -e INPUT_CHANGELOGFILE="${{ env.CHANGE_LOG_FILE }}" \
             -e INPUT_URL="${{ env.JDBC_URL }}" \
