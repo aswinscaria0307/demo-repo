@@ -35,10 +35,17 @@ jobs:
           export_environment_variables: true
           create_credentials_file: true
 
+      - name: Copy Credentials to Workspace
+        run: |
+          cp "$GOOGLE_APPLICATION_CREDENTIALS" "${{ env.WORKSPACE }}/gcp-creds.json"
+          ls -l "${{ env.WORKSPACE }}/gcp-creds.json"
+        shell: bash
+
       - name: Verify Credential Environment
         run: |
           echo "GOOGLE_APPLICATION_CREDENTIALS is: $GOOGLE_APPLICATION_CREDENTIALS"
           cat "$GOOGLE_APPLICATION_CREDENTIALS" | jq '.client_email'
+          cat "${{ env.WORKSPACE }}/gcp-creds.json" | jq '.client_email'
         shell: bash
 
       - name: Set up Java
@@ -126,6 +133,7 @@ jobs:
             -e INPUT_CONTEXTS="${{ inputs.app_env }}" \
             -e INPUT_LOGLEVEL="debug" \
             -e INPUT_INCLUDESYSTEMCLASSPATH="false" \
+            -e GOOGLE_APPLICATION_CREDENTIALS="/github/workspace/gcp-creds.json" \
             liquibase/liquibase:4.32.0 \
             bash -c "echo 'Effective command:'; liquibase --classpath=\$(find /github/workspace/lib/target/dependency -name '*.jar' | tr '\n' ':') --driver=com.google.cloud.spanner.jdbc.JdbcDriver --url='${{ env.JDBC_URL }}' --searchPath=${{ env.SEARCH_PATH }} --changelogFile=${{ env.CHANGE_LOG_FILE }} --contexts='${{ inputs.app_env }}' --logLevel=debug --includeSystemClasspath=false status --verbose"
         shell: bash
@@ -144,12 +152,14 @@ jobs:
           includeSystemClasspath: false
         env:
           JAVA_HOME: ""
+          GOOGLE_APPLICATION_CREDENTIALS: "${{ github.workspace }}/gcp-creds.json"
 
       - name: Run Liquibase Status Manually
         if: failure()
         run: |
           curl -L https://github.com/liquibase/liquibase/releases/download/v4.32.0/liquibase-4.32.0.tar.gz | tar -xz -C /tmp
           export PATH=/tmp:$PATH
+          export GOOGLE_APPLICATION_CREDENTIALS="${{ github.workspace }}/gcp-creds.json"
           CLASSPATH=$(find ${{ github.workspace }}/lib/target/dependency -name '*.jar' | tr '\n' ':')
           liquibase \
             --changelogFile="${{ env.CHANGE_LOG_FILE }}" \
@@ -158,10 +168,10 @@ jobs:
             --searchPath="${{ env.SEARCH_PATH }}" \
             --classpath="$CLASSPATH" \
             --contexts="${{ inputs.app_env }}" \
-            --logLevel=debug \
+            --logLevel=DEBUG \
             --includeSystemClasspath=false \
-            status --verbose > mojojojo.log
-          cat mojojojo.log
+            status --verbose > mojo-log.log
+          cat mojo-log.log
         shell: bash
 
       - name: Output Results
@@ -173,8 +183,8 @@ jobs:
             echo "Liquibase Log:"
             cat liquibase.log
           fi
-          if [ -f mojojojo.log ]; then
-            echo "Manual Liquibase Log:"
-            cat mojojojo.log
+          if [ -f mojo-log.log ]; then
+            echo "Manual Mojo Log:"
+            cat mojo-log.log
           fi
         shell: bash
