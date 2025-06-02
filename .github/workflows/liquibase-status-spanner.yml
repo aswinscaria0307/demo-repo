@@ -13,7 +13,7 @@ on:
         required: true
 
 env:
-  CHANGE_LOG_FILE: changelog-root.xml
+  CHANGE_LOG_FILE: sql/changelog-root.xml  # Updated path
   JDBC_URL: jdbc:cloudspanner:/projects/${{ vars.GCP_PROJECT_ID }}/instances/${{ inputs.spanner_instance }}/databases/demo_liquibase
   SEARCH_PATH: sql
   WORKSPACE: ${{ github.workspace }}
@@ -152,11 +152,12 @@ jobs:
             -e INPUT_INCLUDESYSTEMCLASSPATH="false" \
             -e GOOGLE_APPLICATION_CREDENTIALS="/github/workspace/gcp-creds.json" \
             liquibase/liquibase:4.32.0 \
-            bash -c "echo 'Effective command:'; liquibase --classpath=\$(find /github/workspace/lib/target/dependency -name '*.jar' | tr '\n' ':') --driver=com.google.cloud.spanner.jdbc.JdbcDriver --url='${{ env.JDBC_URL }}' --searchPath=${{ env.SEARCH_PATH }} --changelogFile=${{ env.CHANGE_LOG_FILE }} --contexts='${{ inputs.app_env }}' --logLevel=debug --includeSystemClasspath=false --defaultSchemaName=public status --verbose"
+            bash -c "echo 'Effective command:'; liquibase --classpath=\$(find /github/workspace/lib/target/dependency -name '*.jar' | tr '\n' ':') --driver=com.google.cloud.spanner.jdbc.JdbcDriver --url='${{ env.JDBC_URL }}' --searchPath=${{ env.SEARCH_PATH }} --changelogFile=${{ env.CHANGE_LOG_FILE }} --contexts='${{ inputs.app_env }}' --logLevel=debug --includeSystemClasspath=false status --verbose"
         shell: bash
 
       - name: Run Liquibase Status
         id: liquibase_status
+        if: success()
         uses: liquibase-github-actions/status@v4.32.0
         with:
           changelogFile: ${{ env.CHANGE_LOG_FILE }}
@@ -167,7 +168,6 @@ jobs:
           contexts: ${{ inputs.app_env }}
           logLevel: debug
           includeSystemClasspath: false
-          defaultSchemaName: public
         env:
           JAVA_HOME: ""
           GOOGLE_APPLICATION_CREDENTIALS: "${{ github.workspace }}/gcp-creds.json"
@@ -188,7 +188,6 @@ jobs:
             --contexts="${{ inputs.app_env }}" \
             --logLevel=DEBUG \
             --includeSystemClasspath=false \
-            --defaultSchemaName=public \
             status --verbose > mojo-log.log
           cat mojo-log.log
         shell: bash
