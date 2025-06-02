@@ -137,23 +137,23 @@ jobs:
             bash -c "echo 'Listing contents of /github/workspace:' && ls -l /github/workspace; echo 'Listing contents of /github/workspace/sql:' && ls -l /github/workspace/sql || echo '/github/workspace/sql not found'; echo 'Checking for changelog file:' && ls -l /github/workspace/${{ env.CHANGE_LOG_FILE }} || echo 'Changelog file not found'"
         shell: bash
 
-      # - name: Debug Liquibase Action
-      #   run: |
-      #     docker run --rm \
-      #       -v "${{ github.workspace }}:/github/workspace" \
-      #       --workdir /github/workspace \
-      #       -e INPUT_CLASSPATH="$(find ${{ github.workspace }}/lib/target/dependency -name '*.jar' | tr '\n' ':')" \
-      #       -e INPUT_CHANGELOGFILE="${{ env.CHANGE_LOG_FILE }}" \
-      #       -e INPUT_URL="${{ env.JDBC_URL }}" \
-      #       -e INPUT_DRIVER="com.google.cloud.spanner.jdbc.JdbcDriver" \
-      #       -e INPUT_SEARCHPATH="${{ env.SEARCH_PATH }}" \
-      #       -e INPUT_CONTEXTS="${{ inputs.app_env }}" \
-      #       -e INPUT_LOGLEVEL="debug" \
-      #       -e INPUT_INCLUDESYSTEMCLASSPATH="false" \
-      #       -e GOOGLE_APPLICATION_CREDENTIALS="/github/workspace/gcp-creds.json" \
-      #       liquibase/liquibase:4.32.0 \
-      #       bash -c "echo 'Effective command:'; liquibase --classpath=\$(find /github/workspace/lib/target/dependency -name '*.jar' | tr '\n' ':') --driver=com.google.cloud.spanner.jdbc.JdbcDriver --url='${{ env.JDBC_URL }}' --searchPath=${{ env.SEARCH_PATH }} --changelogFile=${{ env.CHANGE_LOG_FILE }} --contexts='${{ inputs.app_env }}' --logLevel=debug --includeSystemClasspath=false --defaultSchemaName=public status --verbose"
-      #   shell: bash
+      - name: Debug Liquibase Action
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/github/workspace" \
+            --workdir /github/workspace \
+            -e INPUT_CLASSPATH="$(find ${{ github.workspace }}/lib/target/dependency -name '*.jar' | tr '\n' ':')" \
+            -e INPUT_CHANGELOGFILE="${{ env.CHANGE_LOG_FILE }}" \
+            -e INPUT_URL="${{ env.JDBC_URL }}" \
+            -e INPUT_DRIVER="com.google.cloud.spanner.jdbc.JdbcDriver" \
+            -e INPUT_SEARCHPATH="${{ env.SEARCH_PATH }}" \
+            -e INPUT_CONTEXTS="${{ inputs.app_env }}" \
+            -e INPUT_LOGLEVEL="debug" \
+            -e INPUT_INCLUDESYSTEMCLASSPATH="false" \
+            -e GOOGLE_APPLICATION_CREDENTIALS="/github/workspace/gcp-creds.json" \
+            liquibase/liquibase:4.32.0 \
+            bash -c "echo 'Effective command:'; liquibase --classpath=\$(find /github/workspace/lib/target/dependency -name '*.jar' | tr '\n' ':') --driver=com.google.cloud.spanner.jdbc.JdbcDriver --url='${{ env.JDBC_URL }}' --searchPath=${{ env.SEARCH_PATH }} --changelogFile=${{ env.CHANGE_LOG_FILE }} --contexts='${{ inputs.app_env }}' --logLevel=debug --includeSystemClasspath=false --defaultSchemaName=public status --verbose"
+        shell: bash
 
       - name: Run Liquibase Status
         id: liquibase_status
