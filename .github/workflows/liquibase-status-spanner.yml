@@ -27,6 +27,14 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Debug Repository Files
+        run: |
+          echo "Listing repository files:"
+          ls -l
+          echo "Listing sql directory:"
+          ls -l sql || echo "sql directory not found"
+        shell: bash
+
       - name: GCP Authentication
         id: auth
         uses: google-github-actions/auth@v2
@@ -120,6 +128,15 @@ jobs:
             bash -c "echo 'Listing contents of /github/workspace/lib in container:' && ls -l /github/workspace/lib; echo 'Listing contents of /github/workspace/lib/target/dependency in container:' && ls -l /github/workspace/lib/target/dependency; echo 'Working directory:' && pwd; echo 'Checking classpath accessibility:' && ls -l /github/workspace/lib/target/dependency/google-cloud-spanner-jdbc-2.30.1.jar; echo 'Java classpath test:' && java -cp \$(find /github/workspace/lib/target/dependency -name '*.jar' | tr '\n' ':') -version; echo 'Liquibase classpath test:' && liquibase --classpath=\$(find /github/workspace/lib/target/dependency -name '*.jar' | tr '\n' ':') --version; echo 'Driver availability test:' && liquibase --classpath=\$(find /github/workspace/lib/target/dependency -name '*.jar' | tr '\n' ':') --driver=com.google.cloud.spanner.jdbc.JdbcDriver --url='jdbc:cloudspanner:/projects/dummy-project/instances/dummy-instance/databases/dummy-db' status --verbose || echo 'Driver test failed, check logs above'"
         shell: bash
 
+      - name: Debug Workspace Files
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/github/workspace" \
+            --workdir /github/workspace \
+            liquibase/liquibase:4.32.0 \
+            bash -c "echo 'Listing contents of /github/workspace:' && ls -l /github/workspace; echo 'Listing contents of /github/workspace/sql:' && ls -l /github/workspace/sql || echo '/github/workspace/sql not found'; echo 'Checking for changelog file:' && ls -l /github/workspace/${{ env.CHANGE_LOG_FILE }} || echo 'Changelog file not found'"
+        shell: bash
+
       - name: Debug Liquibase Action
         run: |
           docker run --rm \
@@ -135,7 +152,7 @@ jobs:
             -e INPUT_INCLUDESYSTEMCLASSPATH="false" \
             -e GOOGLE_APPLICATION_CREDENTIALS="/github/workspace/gcp-creds.json" \
             liquibase/liquibase:4.32.0 \
-            bash -c "echo 'Effective command:'; liquibase --classpath=\$(find /github/workspace/lib/target/dependency -name '*.jar' | tr '\n' ':') --driver=com.google.cloud.spanner.jdbc.JdbcDriver --url='${{ env.JDBC_URL }}' --searchPath=${{ env.SEARCH_PATH }} --changelogFile=${{ env.CHANGE_LOG_FILE }} --contexts='${{ inputs.app_env }}' --logLevel=debug --includeSystemClasspath=false status --verbose"
+            bash -c "echo 'Effective command:'; liquibase --classpath=\$(find /github/workspace/lib/target/dependency -name '*.jar' | tr '\n' ':') --driver=com.google.cloud.spanner.jdbc.JdbcDriver --url='${{ env.JDBC_URL }}' --searchPath=${{ env.SEARCH_PATH }} --changelogFile=${{ env.CHANGE_LOG_FILE }} --contexts='${{ inputs.app_env }}' --logLevel=debug --includeSystemClasspath=false --defaultSchemaName=public status --verbose"
         shell: bash
 
       - name: Run Liquibase Status
@@ -150,6 +167,7 @@ jobs:
           contexts: ${{ inputs.app_env }}
           logLevel: debug
           includeSystemClasspath: false
+          defaultSchemaName: public
         env:
           JAVA_HOME: ""
           GOOGLE_APPLICATION_CREDENTIALS: "${{ github.workspace }}/gcp-creds.json"
@@ -170,6 +188,7 @@ jobs:
             --contexts="${{ inputs.app_env }}" \
             --logLevel=DEBUG \
             --includeSystemClasspath=false \
+            --defaultSchemaName=public \
             status --verbose > mojo-log.log
           cat mojo-log.log
         shell: bash
