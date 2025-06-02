@@ -13,7 +13,7 @@ on:
         required: true
 
 env:
-  CHANGE_LOG_FILE: sql/changelog-root.xml
+  CHANGE_LOG_FILE: changelog-root.xml
   JDBC_URL: jdbc:cloudspanner:/projects/${{ vars.GCP_PROJECT_ID }}/instances/${{ inputs.spanner_instance }}/databases/demo_liquibase
   SEARCH_PATH: sql
   WORKSPACE: ${{ github.workspace }}
