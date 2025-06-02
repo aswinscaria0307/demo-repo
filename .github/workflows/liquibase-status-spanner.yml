@@ -14,7 +14,7 @@ on:
 
 env:
   CHANGE_LOG_FILE: sql/changelog-root.xml
-  JDBC_URL: jdbc:cloudspanner:/projects/${{ vars.GCP_PROJECT_ID }}/instances/${{ inputs.spanner_instance }}/databases/demo_liquibase?credentials=/github/workspace/gha-creds.json
+  JDBC_URL: jdbc:cloudspanner:/projects/${{ vars.GCP_PROJECT_ID }}/instances/${{ inputs.spanner_instance }}/databases/demo_liquibase?credentials=${{ secrets.GCP_SA_KEY }}
   SEARCH_PATH: sql
   WORKSPACE: ${{ github.workspace }}
 
@@ -41,10 +41,10 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Install Maven
+      - name: Install Maven and jq
         run: |
           sudo apt-get update
-          sudo apt-get install -y maven
+          sudo apt-get install -y maven jq
 
       - name: Verify JAVA_HOME
         run: |
@@ -94,21 +94,6 @@ jobs:
           fi
         shell: bash
 
-      - name: Save Service Account Key
-        run: echo "${{ secrets.GCP_SA_KEY }}" > "${{ env.WORKSPACE }}/gha-creds.json"
-        shell: bash
-
-      - name: Verify Service Account
-        run: |
-          ls -l "${{ env.WORKSPACE }}/gha-creds.json"
-          cat "${{ env.WORKSPACE }}/gha-creds.json" | head -n 2
-          docker run --rm \
-            -v "${{ github.workspace }}:/github/workspace" \
-            --workdir /github/workspace \
-            liquibase/liquibase:4.32.0 \
-            bash -c "ls -l /github/workspace/gha-creds.json || echo 'Credentials file not found'; cat /github/workspace/gha-creds.json | head -n 2 || echo 'Cannot read credentials file'"
-        shell: bash
-
       - name: Debug Classpath
         run: |
           echo "Listing contents of ${{ github.workspace }}/lib in host:"
@@ -119,7 +104,7 @@ jobs:
             -v "${{ github.workspace }}:/github/workspace" \
             --workdir /github/workspace \
             liquibase/liquibase:4.32.0 \
-            bash -c "echo 'Listing contents of /github/workspace/lib in container:' && ls -l /github/workspace/lib; echo 'Listing contents of /github/workspace/lib/target/dependency in container:' && ls -l /github/workspace/lib/target/dependency; echo 'Working directory:' && pwd; echo 'Checking classpath accessibility:' && ls -l /github/workspace/lib/target/dependency/google-cloud-spanner-jdbc-2.30.1.jar; echo 'Java classpath test:' && java -cp \$(find /github/workspace/lib/target/dependency -name '*.jar' | tr '\n' ':') -version; echo 'Liquibase classpath test:' && liquibase --classpath=/github/workspace/lib/target/dependency --version; echo 'Driver availability test:' && liquibase --classpath=/github/workspace/lib/target/dependency --driver=com.google.cloud.spanner.jdbc.JdbcDriver --url='jdbc:cloudspanner:/projects/dummy-project/instances/dummy-instance/databases/dummy-db' status --verbose || echo 'Driver test failed, check logs above'"
+            bash -c "echo 'Listing contents of /github/workspace/lib in container:' && ls -l /github/workspace/lib; echo 'Listing contents of /github/workspace/lib/target/dependency in container:' && ls -l /github/workspace/lib/target/dependency; echo 'Working directory:' && pwd; echo 'Checking classpath accessibility:' && ls -l /github/workspace/lib/target/dependency/google-cloud-spanner-jdbc-2.30.1.jar; echo 'Java classpath test:' && java -cp \$(find /github/workspace/lib/target/dependency -name '*.jar' | tr '\n' ':') -version; echo 'Liquibase classpath test:' && liquibase --classpath=\$(find /github/workspace/lib/target/dependency -name '*.jar' | tr '\n' ':') --version; echo 'Driver availability test:' && liquibase --classpath=\$(find /github/workspace/lib/target/dependency -name '*.jar' | tr '\n' ':') --driver=com.google.cloud.spanner.jdbc.JdbcDriver --url='jdbc:cloudspanner:/projects/dummy-project/instances/dummy-instance/databases/dummy-db' status --verbose || echo 'Driver test failed, check logs above'"
         shell: bash
 
       - name: Debug Liquibase Action
@@ -136,7 +121,7 @@ jobs:
             -e INPUT_LOGLEVEL="debug" \
             -e INPUT_INCLUDESYSTEMCLASSPATH="false" \
             liquibase/liquibase:4.32.0 \
-            bash -c "echo 'Effective command:'; liquibase --classpath=\$(find /github/workspace/lib/target/dependency -name '*.jar' | tr '\n' ':') --driver=com.google.cloud.spanner.jdbc.JdbcDriver --url='${{ env.JDBC_URL }}' --search-path=${{ env.SEARCH_PATH }} --changelog-file=${{ env.CHANGE_LOG_FILE }} --contexts=${{ inputs.app_env }} --log-level=debug --includeSystemClasspath=false status --verbose"
+            bash -c "echo 'Effective command:'; liquibase --classpath=\$(find /github/workspace/lib/target/dependency -name '*.jar' | tr '\n' ':') --driver=com.google.cloud.spanner.jdbc.JdbcDriver --url='${{ env.JDBC_URL }}' --searchPath=${{ env.SEARCH_PATH }} --changelogFile=${{ env.CHANGE_LOG_FILE }} --contexts='${{ inputs.app_env }}' --logLevel=debug --includeSystemClasspath=false status --verbose"
         shell: bash
 
       - name: Run Liquibase Status
@@ -169,8 +154,8 @@ jobs:
             --contexts="${{ inputs.app_env }}" \
             --logLevel=debug \
             --includeSystemClasspath=false \
-            status --verbose > liquibase_manual.log
-          cat liquibase_manual.log
+            status --verbose > mojojojo.log
+          cat mojojojo.log
         shell: bash
 
       - name: Output Results
@@ -178,3 +163,12 @@ jobs:
         run: |
           echo "Changesets:"
           echo "${{ steps.liquibase_status.outputs.output }}"
+          if [ -f liquibase.log ]; then
+            echo "Liquibase Log:"
+            cat liquibase.log
+          fi
+          if [ -f mojojojo.log ]; then
+            echo "Manual Liquibase Log:"
+            cat mojojojo.log
+          fi
+        shell: bash
