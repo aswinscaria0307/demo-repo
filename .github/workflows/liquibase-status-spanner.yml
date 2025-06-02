@@ -14,7 +14,7 @@ on:
 
 env:
   CHANGE_LOG_FILE: sql/changelog-root.xml
-  JDBC_URL: jdbc:cloudspanner:/projects/${{ vars.GCP_PROJECT_ID }}/instances/${{ inputs.spanner_instance }}/databases/demo_liquibase?credentials=/github/workspace/gha-creds.json
+  JDBC_URL: jdbc:cloudspanner:/projects/${{ vars.GCP_PROJECT_ID }}/instances/${{ inputs.spanner_instance }}/databases/demo_liquibase
   SEARCH_PATH: sql
   WORKSPACE: ${{ github.workspace }}
 
@@ -35,6 +35,12 @@ jobs:
           export_environment_variables: true
           create_credentials_file: true
 
+      - name: Verify Credential Environment
+        run: |
+          echo "GOOGLE_APPLICATION_CREDENTIALS is: $GOOGLE_APPLICATION_CREDENTIALS"
+          cat "$GOOGLE_APPLICATION_CREDENTIALS" | jq '.client_email'
+        shell: bash
+
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
@@ -52,11 +58,6 @@ jobs:
           ls -l "$JAVA_HOME"
           RESOLVED_JAVA_HOME=$(readlink -f "$JAVA_HOME")
           echo "Resolved JAVA_HOME: $RESOLVED_JAVA_HOME"
-        shell: bash
-
-      - name: Save Service Account Key
-        run: |
-          echo "${{ secrets.GCP_SA_KEY }}" | tr -d '\r' | jq . > "${{ env.WORKSPACE }}/gha-creds.json"
         shell: bash
 
       - name: Download JDBC driver
