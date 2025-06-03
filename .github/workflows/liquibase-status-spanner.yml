@@ -15,7 +15,7 @@ on:
 env:
   CHANGE_LOG_FILE: sql/changelog-root.xml
   JDBC_URL: jdbc:cloudspanner:/projects/${{ vars.GCP_PROJECT_ID }}/instances/${{ inputs.spanner_instance }}/databases/demo_liquibase
-  SEARCH_PATH: sql
+  SEARCH_PATH: /github/workspace,/github/workspace/sql  # Absolute paths
   WORKSPACE: ${{ github.workspace }}
 
 jobs:
@@ -152,12 +152,11 @@ jobs:
             -e INPUT_INCLUDESYSTEMCLASSPATH="false" \
             -e GOOGLE_APPLICATION_CREDENTIALS="/github/workspace/gcp-creds.json" \
             liquibase/liquibase:4.32.0 \
-            bash -c "echo 'Effective command:'; liquibase --classpath=\$(find /github/workspace/lib/target/dependency -name '*.jar' | tr '\n' ':') --driver=com.google.cloud.spanner.jdbc.JdbcDriver --url='${{ env.JDBC_URL }}' --searchPath=${{ env.SEARCH_PATH }} --changelogFile=${{ env.CHANGE_LOG_FILE }} --contexts='${{ inputs.app_env }}' --logLevel=debug --includeSystemClasspath=false status --verbose"
+            bash -c "echo 'Effective command:'; liquibase --classpath=\$(find /github/workspace/lib/target/dependency -name '*.jar' | tr '\n' ':') --driver=com.google.cloud.spanner.jdbc.JdbcDriver --url='${{ env.JDBC_URL }}' --searchPath='${{ env.SEARCH_PATH }}' --changelogFile='${{ env.CHANGE_LOG_FILE }}' --contexts='${{ inputs.app_env }}' --logLevel=debug --includeSystemClasspath=false status --verbose > liquibase-status.log 2>&1; cat liquibase-status.log"
         shell: bash
 
       - name: Run Liquibase Status
         id: liquibase_status
-        if: success()
         uses: liquibase-github-actions/status@v4.32.0
         with:
           changelogFile: ${{ env.CHANGE_LOG_FILE }}
