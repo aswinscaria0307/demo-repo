@@ -13,9 +13,9 @@ on:
         required: true
 
 env:
-  CHANGE_LOG_FILE: sql/changelog-root.xml  # Updated path
+  CHANGE_LOG_FILE: /github/workspace/sql/changelog-root.xml  # Absolute path
   JDBC_URL: jdbc:cloudspanner:/projects/${{ vars.GCP_PROJECT_ID }}/instances/${{ inputs.spanner_instance }}/databases/demo_liquibase
-  SEARCH_PATH: sql
+  SEARCH_PATH: /github/workspace/sql  # Absolute path
   WORKSPACE: ${{ github.workspace }}
 
 jobs:
