@@ -15,7 +15,7 @@ on:
 env:
   CHANGE_LOG_FILE: sql/changelog-root.xml
   JDBC_URL: jdbc:cloudspanner:/projects/${{ vars.GCP_PROJECT_ID }}/instances/${{ inputs.spanner_instance }}/databases/demo_liquibase
-  SEARCH_PATH: /github/workspace,/github/workspace/sql  # Absolute paths
+  SEARCH_PATH: /github/workspace,/github/workspace/sql
   WORKSPACE: ${{ github.workspace }}
 
 jobs:
@@ -147,12 +147,11 @@ jobs:
             -e INPUT_URL="${{ env.JDBC_URL }}" \
             -e INPUT_DRIVER="com.google.cloud.spanner.jdbc.JdbcDriver" \
             -e INPUT_SEARCHPATH="${{ env.SEARCH_PATH }}" \
-            -e INPUT_CONTEXTS="${{ inputs.app_env }}" \
+            -e INPUT_CONTEXTFILTER="${{ inputs.app_env }}" \
             -e INPUT_LOGLEVEL="debug" \
-            -e INPUT_INCLUDESYSTEMCLASSPATH="false" \
             -e GOOGLE_APPLICATION_CREDENTIALS="/github/workspace/gcp-creds.json" \
             liquibase/liquibase:4.32.0 \
-            bash -c "echo 'Effective command:'; liquibase --classpath=\$(find /github/workspace/lib/target/dependency -name '*.jar' | tr '\n' ':') --driver=com.google.cloud.spanner.jdbc.JdbcDriver --url='${{ env.JDBC_URL }}' --searchPath='${{ env.SEARCH_PATH }}' --changelogFile='${{ env.CHANGE_LOG_FILE }}' --contexts='${{ inputs.app_env }}' --logLevel=debug --includeSystemClasspath=false status --verbose > liquibase-status.log 2>&1; cat liquibase-status.log"
+            bash -c "echo 'Effective command:'; liquibase --classpath=\$(find /github/workspace/lib/target/dependency -name '*.jar' | tr '\n' ':') --driver=com.google.cloud.spanner.jdbc.JdbcDriver --url='${{ env.JDBC_URL }}' --searchPath='${{ env.SEARCH_PATH }}' --changelogFile='${{ env.CHANGE_LOG_FILE }}' --contextFilter='${{ inputs.app_env }}' --logLevel=debug status --verbose > liquibase-status.log 2>&1; cat liquibase-status.log"
         shell: bash
 
       - name: Run Liquibase Status
@@ -164,9 +163,9 @@ jobs:
           driver: com.google.cloud.spanner.jdbc.JdbcDriver
           searchPath: "${{ env.SEARCH_PATH }}"
           classpath: "$(find ${{ github.workspace }}/lib/target/dependency -name '*.jar' | tr '\n' ':')"
-          contexts: ${{ inputs.app_env }}
+          contextFilter: ${{ inputs.app_env }}
           logLevel: debug
-          includeSystemClasspath: false
+          outputFile: liquibase-status.log
         env:
           JAVA_HOME: ""
           GOOGLE_APPLICATION_CREDENTIALS: "${{ github.workspace }}/gcp-creds.json"
@@ -184,7 +183,7 @@ jobs:
             --driver=com.google.cloud.spanner.jdbc.JdbcDriver \
             --searchPath="${{ env.SEARCH_PATH }}" \
             --classpath="$CLASSPATH" \
-            --contexts="${{ inputs.app_env }}" \
+            --contextFilter="${{ inputs.app_env }}" \
             --logLevel=DEBUG \
             --includeSystemClasspath=false \
             status --verbose > mojo-log.log
