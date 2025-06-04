@@ -87,6 +87,13 @@ jobs:
             echo "ERROR: Spanner JDBC driver not found"
             exit 1
           fi
+          if [ -f "${{ env.WORKSPACE }}/lib/target/dependency/google-cloud-spanner-6.81.0.jar" ]; then
+            echo "Spanner client library found"
+            unzip -l "${{ env.WORKSPACE }}/lib/target/dependency/google-cloud-spanner-6.81.0.jar" | grep com/google/cloud/spanner/SpannerException || echo "ERROR: SpannerException not found in JAR"
+          else
+            echo "ERROR: Spanner client library not found"
+            exit 1
+          fi
         shell: bash
 
       - name: Configure Liquibase Properties
@@ -94,6 +101,25 @@ jobs:
           echo "liquibase.defaultSchemaName=" > "${{ env.WORKSPACE }}/liquibase.properties"
           echo "liquibase.classpath=$(find ${{ github.workspace }}/lib/target/dependency -name '*.jar' | tr '\n' ':')" >> "${{ env.WORKSPACE }}/liquibase.properties"
           cat "${{ env.WORKSPACE }}/liquibase.properties"
+        shell: bash
+
+      - name: Debug Action Classpath
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/github/workspace" \
+            --workdir /github/workspace \
+            c13928:08447d14c6564aa6a74daf8506806 \
+            bash -c "echo 'Classpath input: ${INPUT_CLASSPATH}'; \
+                     echo 'Listing classpath files:'; \
+                     ls -l /github/workspace/lib/target/dependency/*.jar || echo 'No JARs found'; \
+                     echo 'Checking Spanner JDBC driver:'; \
+                     ls -l /github/workspace/lib/target/dependency/google-cloud-spanner-jdbc-2.30.1.jar || echo 'JDBC driver JAR not found'; \
+                     echo 'Checking Spanner client:'; \
+                     ls -l /github/workspace/lib/target/dependency/google-cloud-spanner-6.81.0.jar || echo 'Spanner client JAR not found'; \
+                     echo 'Testing driver:'; \
+                     java -cp \$(find /github/workspace/lib/target/dependency -name '*.jar' | tr '\n' ':') com.google.cloud.spanner.jdbc.JdbcDriver || echo 'Driver test failed'"
+        env:
+          INPUT_CLASSPATH: "$(find ${{ github.workspace }}/lib/target/dependency -name '*.jar' | tr '\n' ':')"
         shell: bash
 
       - name: Run Liquibase Status
@@ -104,7 +130,7 @@ jobs:
           url: "${{ env.JDBC_URL }}"
           driver: com.google.cloud.spanner.jdbc.JdbcDriver
           searchPath: "${{ env.SEARCH_PATH }}"
-          classpath: "$(find ${{ github.workspace }}/lib/target/dependency -name '*.jar' | tr '\n' ':')"
+          defaultsFile: /github/workspace/liquibase.properties
           contextFilter: ${{ inputs.app_env }}
           logLevel: debug
           outputFile: liquibase-status.log
