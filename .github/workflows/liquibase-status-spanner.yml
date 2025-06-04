@@ -33,6 +33,33 @@ jobs:
           ls -l
           echo "Listing sql directory:"
           ls -l sql || echo "sql directory not found"
+          echo "Checking for changelog-root.xml (case-sensitive):"
+          ls -l sql/changelog-root.xml || echo "changelog-root.xml not found"
+          echo "Checking for changelog-root.xml (case-insensitive):"
+          find sql -iname 'changelog-root.xml' || echo "No changelog-root.xml found"
+          echo "Content of changelog-root.xml:"
+          cat sql/changelog-root.xml || echo "Cannot read changelog-root.xml"
+          echo "Content of init-changelog.xml:"
+          cat sql/init-changelog.xml || echo "Cannot read init-changelog.xml"
+          echo "Content of changeset1.sql:"
+          cat sql/changeset1.sql || echo "Cannot read changeset1.sql"
+        shell: bash
+
+      - name: Debug Workspace Files
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/github/workspace" \
+            --workdir /github/workspace \
+            liquibase/liquibase:4.32.0 \
+            bash -c "echo 'Listing contents of /github/workspace:' && ls -l /github/workspace; \
+                     echo 'Listing contents of /github/workspace/sql:' && ls -l /github/workspace/sql || echo '/github/workspace/sql not found'; \
+                     echo 'Checking for changelog-root.xml (case-sensitive):' && ls -l /github/workspace/sql/changelog-root.xml || echo 'changelog-root.xml not found'; \
+                     echo 'Checking for changelog-root.xml (case-insensitive):' && find /github/workspace/sql -iname 'changelog-root.xml' || echo 'No changelog-root.xml found'; \
+                     echo 'Checking for init-changelog.xml:' && ls -l /github/workspace/sql/init-changelog.xml || echo 'init-changelog.xml not found'; \
+                     echo 'Checking for changeset1.sql:' && ls -l /github/workspace/sql/changeset1.sql || echo 'changeset1.sql not found'; \
+                     echo 'Content of changelog-root.xml:' && cat /github/workspace/sql/changelog-root.xml || echo 'Cannot read changelog-root.xml'; \
+                     echo 'Content of init-changelog.xml:' && cat /github/workspace/sql/init-changelog.xml || echo 'Cannot read init-changelog.xml'; \
+                     echo 'Content of changeset1.sql:' && cat /github/workspace/sql/changeset1.sql || echo 'Cannot read changeset1.sql'"
         shell: bash
 
       - name: GCP Authentication
@@ -54,6 +81,19 @@ jobs:
           echo "GOOGLE_APPLICATION_CREDENTIALS is: $GOOGLE_APPLICATION_CREDENTIALS"
           cat "$GOOGLE_APPLICATION_CREDENTIALS" | jq '.client_email'
           cat "${{ env.WORKSPACE }}/gcp-creds.json" | jq '.client_email'
+        shell: bash
+
+      - name: Check DATABASECHANGELOG Table
+        run: |
+          gcloud spanner databases execute-sql demo_liquibase --instance=${{ inputs.spanner_instance }} \
+            --sql="SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'DATABASECHANGELOG'" > table-check.log
+          cat table-check.log
+          if grep -q "1" table-check.log; then
+            echo "DATABASECHANGELOG table exists"
+          else
+            echo "ERROR: DATABASECHANGELOG table does not exist. Run 'liquibase update' to create it."
+            exit 1
+          fi
         shell: bash
 
       - name: Set up Java
@@ -162,7 +202,7 @@ jobs:
           url: "${{ env.JDBC_URL }}"
           driver: com.google.cloud.spanner.jdbc.JdbcDriver
           searchPath: "${{ env.SEARCH_PATH }}"
-          classpath: "$(find ${{ github.workspace }}/lib/target/dependency -name '*.jar' | tr '\n' ':')"
+          classpath: "/github/workspace/lib/target/dependency/google-cloud-spanner-jdbc-2.30.1.jar"
           contextFilter: ${{ inputs.app_env }}
           logLevel: debug
           outputFile: liquibase-status.log
@@ -176,17 +216,17 @@ jobs:
           curl -L https://github.com/liquibase/liquibase/releases/download/v4.32.0/liquibase-4.32.0.tar.gz | tar -xz -C /tmp
           export PATH=/tmp:$PATH
           export GOOGLE_APPLICATION_CREDENTIALS="${{ github.workspace }}/gcp-creds.json"
-          CLASSPATH=$(find ${{ github.workspace }}/lib/target/dependency -name '*.jar' | tr '\n' ':')
+          CLASSPATH=/home/runner/work/demo-repo/demo-repo/lib/target/dependency/google-cloud-spanner-jdbc-2.jar.
           liquibase \
-            --changelogFile="${{ env.CHANGE_LOG_FILE }}" \
-            --url="${{ env.JDBC_URL }}" \
-            --driver=com.google.cloud.spanner.jdbc.JdbcDriver \
-            --searchPath="${{ env.SEARCH_PATH }}" \
-            --classpath="$CLASSPATH" \
-            --contextFilter="${{ inputs.app_env }}" \
-            --logLevel=DEBUG \
-            --includeSystemClasspath=false \
-            status --verbose > mojo-log.log
+            --changelogFile="${{ env.CHANGE_LOG_FILE}}" \
+              --url="${JDBC_URL}" \
+               --driver=com.google.cloud.spanner.jdbc.JdbcDriver \
+               --searchPath="${SEARCH_PATH}" \
+               --classpath="$CLASSPATH" \
+               --contextFilter="${{ inputs.app_env }}" \
+               --logLevel=DEBUG \
+               --outputFile=liquibase-status.log \
+               status --verbose > mojo-log.log
           cat mojo-log.log
         shell: bash
 
@@ -194,12 +234,12 @@ jobs:
         if: always()
         run: |
           echo "Changesets:"
-          echo "${{ steps.liquibase_status.outputs.output }}"
-          if [ -f liquibase.log ]; then
-            echo "Liquibase Log:"
-            cat liquibase.log
+          echo "${{ steps.liquibase_status.outputs.outputFile }}"
+          if [ -f liquibase-status.log ]; then
+            echo "Liquibase Status Log:"
+            cat liquibase-status.log
           fi
-          if [ -f mojo-log.log ]; then
+            if [ -f mojo-log.log ]; then
             echo "Manual Mojo Log:"
             cat mojo-log.log
           fi
