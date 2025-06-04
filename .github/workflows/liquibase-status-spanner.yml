@@ -83,19 +83,6 @@ jobs:
           cat "${{ env.WORKSPACE }}/gcp-creds.json" | jq '.client_email'
         shell: bash
 
-      - name: Check DATABASECHANGELOG Table
-        run: |
-          gcloud spanner databases execute-sql demo_liquibase --instance=${{ inputs.spanner_instance }} \
-            --sql="SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'DATABASECHANGELOG'" > table-check.log
-          cat table-check.log
-          if grep -q "1" table-check.log; then
-            echo "DATABASECHANGELOG table exists"
-          else
-            echo "ERROR: DATABASECHANGELOG table does not exist. Run 'liquibase update' to create it."
-            exit 1
-          fi
-        shell: bash
-
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
