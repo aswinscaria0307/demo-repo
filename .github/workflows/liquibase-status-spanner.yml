@@ -16,7 +16,6 @@ env:
   CHANGE_LOG_FILE: sql/changelog-root.xml
   JDBC_URL: jdbc:cloudspanner:/projects/${{ vars.GCP_PROJECT_ID }}/instances/${{ inputs.spanner_instance }}/databases/demo_liquibase
   SEARCH_PATH: /github/workspace,/github/workspace/sql
-  WORKSPACE: ${{ github.workspace }}
 
 jobs:
   test-liquibase-status:
@@ -36,8 +35,7 @@ jobs:
           create_credentials_file: true
 
       - name: Copy Credentials to Workspace
-        run: |
-          cp "$GOOGLE_APPLICATION_CREDENTIALS" "${{ env.WORKSPACE }}/gcp-creds.json"
+        run: cp "$GOOGLE_APPLICATION_CREDENTIALS" /github/workspace/gcp-creds.json
         shell: bash
 
       - name: Set up Java
@@ -51,24 +49,37 @@ jobs:
 
       - name: Download Liquibase Spanner Extension
         run: |
-          mkdir -p "${{ env.WORKSPACE }}/liquibase-lib"
+          mkdir -p /github/workspace/liquibase-lib
           mvn dependency:copy -Dartifact=com.google.cloudspannerecosystem:liquibase-spanner:4.20.0:jar \
-            -DoutputDirectory="${{ env.WORKSPACE }}/liquibase-lib"
-          ls -l "${{ env.WORKSPACE }}/liquibase-lib"
-          if [ -f "${{ env.WORKSPACE }}/liquibase-lib/liquibase-spanner-4.20.0.jar" ]; then
+            -DoutputDirectory=/github/workspace/liquibase-lib
+          ls -l /github/workspace/liquibase-lib
+          if [ -f /github/workspace/liquibase-lib/liquibase-spanner-4.20.0.jar ]; then
             echo "Liquibase Spanner extension found"
-            unzip -l "${{ env.WORKSPACE }}/liquibase-lib/liquibase-spanner-4.20.0.jar" | grep com/google/cloud/spanner/jdbc/JdbcDriver || echo "WARNING: Driver class not found in JAR"
           else
             echo "ERROR: Liquibase Spanner extension not found"
             exit 1
           fi
         shell: bash
 
+      - name: Download Spanner JDBC Driver
+        run: |
+          mvn dependency:copy -Dartifact=com.google.cloud:google-cloud-spanner-jdbc:2.30.1:jar \
+            -DoutputDirectory=/github/workspace/liquibase-lib
+          ls -l /github/workspace/liquibase-lib
+          if [ -f /github/workspace/liquibase-lib/google-cloud-spanner-jdbc-2.30.1.jar ]; then
+            echo "Spanner JDBC driver found"
+            unzip -l /github/workspace/liquibase-lib/google-cloud-spanner-jdbc-2.30.1.jar | grep com/google/cloud/spanner/jdbc/JdbcDriver || echo "ERROR: Driver not found in JAR"
+          else
+            echo "ERROR: Spanner JDBC driver not found"
+            exit 1
+          fi
+        shell: bash
+
       - name: Configure Liquibase Properties
         run: |
-          echo "liquibase.defaultSchemaName=" > "${{ env.WORKSPACE }}/liquibase.properties"
-          echo "liquibase.classpath=${{ env.WORKSPACE }}/liquibase-lib/liquibase-spanner-4.20.0.jar" >> "${{ env.WORKSPACE }}/liquibase.properties"
-          cat "${{ env.WORKSPACE }}/liquibase.properties"
+          echo "liquibase.defaultSchemaName=" > /github/workspace/liquibase.properties
+          echo "liquibase.classpath=/github/workspace/liquibase-lib/liquibase-spanner-4.20.0.jar:/github/workspace/liquibase-lib/google-cloud-spanner-jdbc-2.30.1.jar" >> /github/workspace/liquibase.properties
+          cat /github/workspace/liquibase.properties
         shell: bash
 
       - name: Run Liquibase Status
@@ -79,13 +90,13 @@ jobs:
           url: "${{ env.JDBC_URL }}"
           driver: com.google.cloud.spanner.jdbc.JdbcDriver
           searchPath: "${{ env.SEARCH_PATH }}"
-          defaultsFile: ${{ env.WORKSPACE }}/liquibase.properties
+          defaultsFile: /github/workspace/liquibase.properties
           contextFilter: ${{ inputs.app_env }}
           logLevel: debug
           outputFile: liquibase-status.log
         env:
           JAVA_HOME: ""
-          GOOGLE_APPLICATION_CREDENTIALS: "${{ env.WORKSPACE }}/gcp-creds.json"
+          GOOGLE_APPLICATION_CREDENTIALS: /github/workspace/gcp-creds.json
 
       - name: Output Results
         if: always()
