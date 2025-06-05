@@ -145,13 +145,13 @@ jobs:
             -e GOOGLE_APPLICATION_CREDENTIALS=/liquibase/gcp-creds.json \
             --entrypoint=/bin/sh \
             ${{ env.LIQUIBASE_IMAGE }} \
-            -c "liquibase --defaultsFile=/liquibase/${{ env.LIQUIBASE_PROPERTIES }} --log-level=debug status --contexts='${{ env.APP_ENV }}' | grep 'is up to date' | wc -l")
+            -c "/liquibase/liquibase --defaultsFile=/liquibase/${{ env.LIQUIBASE_PROPERTIES }} --log-level=debug status --contexts='${{ env.APP_ENV }}' | grep 'is up to date' | wc -l")
           echo "UPDATE_STATUS=$UPDATE_STATUS" >> $GITHUB_ENV
           echo "0" > "${{ github.workspace }}/liquibase-status.txt"
           cat "${{ github.workspace }}/liquibase-status.txt"
         shell: bash
         continue-on-error: true
-
+      
       - name: Run Liquibase Commands
         id: run-liquibase-commands
         if: env.SHOULD_RUN == 'true' && env.SQL_CODE_STATUS != '0' && env.UPDATE_STATUS != '1'
@@ -161,19 +161,19 @@ jobs:
             -e GOOGLE_APPLICATION_CREDENTIALS=/liquibase/gcp-creds.json \
             --entrypoint=/bin/sh \
             ${{ env.LIQUIBASE_IMAGE }} \
-            -c "liquibase --defaultsFile=/liquibase/${{ env.LIQUIBASE_PROPERTIES }} --log-level=debug validate" || { echo "Liquibase validate failed"; exit 1; }
+            -c "/liquibase/liquibase --defaultsFile=/liquibase/${{ env.LIQUIBASE_PROPERTIES }} --log-level=debug validate" || { echo "Liquibase validate failed"; exit 1; }
           docker run --rm \
             -v "${{ github.workspace }}:/liquibase" \
             -e GOOGLE_APPLICATION_CREDENTIALS=/liquibase/gcp-creds.json \
             --entrypoint=/bin/sh \
             ${{ env.LIQUIBASE_IMAGE }} \
-            -c "liquibase --defaultsFile=/liquibase/${{ env.LIQUIBASE_PROPERTIES }} --log-level=debug tag '${{ env.APP_VERSION }}'" || { echo "Liquibase tag failed"; exit 1; }
+            -c "/liquibase/liquibase --defaultsFile=/liquibase/${{ env.LIQUIBASE_PROPERTIES }} --log-level=debug tag '${{ env.APP_VERSION }}'" || { echo "Liquibase tag failed"; exit 1; }
           docker run --rm \
             -v "${{ github.workspace }}:/liquibase" \
             -e GOOGLE_APPLICATION_CREDENTIALS=/liquibase/gcp-creds.json \
             --entrypoint=/bin/sh \
             ${{ env.LIQUIBASE_IMAGE }} \
-            -c "bash -x -c 'liquibase --defaultsFile=/liquibase/${{ env.LIQUIBASE_PROPERTIES }} --log-level=debug update --contexts='\${APP_ENV}' && echo \$? > /liquibase/liquibase-status.txt'" \
+            -c "bash -x -c '/liquibase/liquibase --defaultsFile=/liquibase/${{ env.LIQUIBASE_PROPERTIES }} --log-level=debug update --contexts='\${APP_ENV}' && echo \$? > /liquibase/liquibase-status.txt'" \
             APP_ENV="${{ env.APP_ENV }}" || { echo "Liquibase update failed"; exit 1; }
           cat "${{ github.workspace }}/liquibase-status.txt"
         shell: bash
