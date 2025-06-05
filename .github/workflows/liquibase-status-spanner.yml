@@ -1,4 +1,4 @@
-name: Liquibase Status with Spanner
+name: Liquibase Docker with Spanner
 
 on:
   workflow_dispatch:
@@ -18,7 +18,7 @@ env:
   SEARCH_PATH: ${{ github.workspace }},${{ github.workspace }}/sql
 
 jobs:
-  test-liquibase-status:
+  liquibase-docker:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -82,29 +82,39 @@ jobs:
           cat "${{ github.workspace }}/liquibase.properties"
         shell: bash
 
+      - name: Run Liquibase Update
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/liquibase" \
+            -e GOOGLE_APPLICATION_CREDENTIALS=/liquibase/gcp-creds.json \
+            liquibase/liquibase:4.32.0 \
+            --defaultsFile=/liquibase/liquibase.properties \
+            --url="${{ env.JDBC_URL }}" \
+            --driver=com.google.cloud.spanner.jdbc.JdbcDriver \
+            --changelog-file="${{ env.CHANGE_LOG_FILE }}" \
+            --search-path="${{ env.SEARCH_PATH }}" \
+            --context-filter="${{ inputs.app_env }}" \
+            --log-level=debug \
+            update
+        shell: bash
+
       - name: Run Liquibase Status
-        id: liquibase_status
-        uses: liquibase-github-actions/status@v4.32.0
-        with:
-          changelogFile: ${{ env.CHANGE_LOG_FILE }}
-          url: "${{ env.JDBC_URL }}"
-          driver: com.google.cloud.spanner.jdbc.JdbcDriver
-          searchPath: "${{ env.SEARCH_PATH }}"
-          defaultsFile: "${{ github.workspace }}/liquibase.properties"
-          contextFilter: ${{ inputs.app_env }}
-          logLevel: debug
-          outputFile: liquibase-status.log
-        env:
-          JAVA_HOME: ""
-          GOOGLE_APPLICATION_CREDENTIALS: "${{ github.workspace }}/gcp-creds.json"
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/liquibase" \
+            -e GOOGLE_APPLICATION_CREDENTIALS=/liquibase/gcp-creds.json \
+            liquibase/liquibase:4.32.0 \
+            --defaultsFile=/liquibase/liquibase.properties \
+            --url="${{ env.JDBC_URL }}" \
+            --driver=com.google.cloud.spanner.jdbc.JdbcDriver \
+            --changelog-file="${{ env.CHANGE_LOG_FILE }}" \
+            --search-path="${{ env.SEARCH_PATH }}" \
+            --context-filter="${{ inputs.app_env }}" \
+            --log-level=debug \
+            status --verbose
+        shell: bash
 
       - name: Output Results
         if: always()
-        run: |
-          if [ -f liquibase-status.log ]; then
-            echo "Liquibase Status Log:"
-            cat liquibase-status.log
-          else
-            echo "No liquibase-status.log found"
-          fi
+        run: ls -l "${{ github.workspace }}"
         shell: bash
