@@ -20,11 +20,16 @@ env:
   CHANGE_LOG_FILE: sql/changelog-root.xml
   JDBC_URL: jdbc:cloudspanner:/projects/${{ vars.GCP_PROJECT_ID }}/instances/${{ inputs.spanner_instance }}/databases/demo_liquibase
   SEARCH_PATH: /liquibase,/liquibase/sql
-  LIQUIBASE_IMAGE: liquibase:4.32.0  
+  LIQUIBASE_IMAGE: liquibase:4.29.2
+  LIQUIBASE_PROPERTIES: liquibase.properties
 
 jobs:
   liquibase-update-tag:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -69,9 +74,8 @@ jobs:
           mkdir -p "${{ github.workspace }}/liquibase-lib"
           mvn dependency:copy -Dartifact=com.google.cloudspannerecosystem:liquibase-spanner:4.20.0:jar \
             -DoutputDirectory="${{ github.workspace }}/liquibase-lib"
-          ls -l "${{ github.workspace }}/liquibase-lib"
           if [ -f "${{ github.workspace }}/liquibase-lib/liquibase-spanner-4.20.0.jar" ]; then
-            echo "Liquibase Spanner extension found"
+            echo "Liquibase Spanner extension downloaded"
           else
             echo "ERROR: Liquibase Spanner extension not found"
             exit 1
@@ -82,10 +86,8 @@ jobs:
         run: |
           mvn dependency:copy -Dartifact=com.google.cloud:google-cloud-spanner-jdbc:2.30.1:jar \
             -DoutputDirectory="${{ github.workspace }}/liquibase-lib"
-          ls -l "${{ github.workspace }}/liquibase-lib"
           if [ -f "${{ github.workspace }}/liquibase-lib/google-cloud-spanner-jdbc-2.30.1.jar" ]; then
-            echo "Spanner JDBC driver found"
-            unzip -l "${{ github.workspace }}/liquibase-lib/google-cloud-spanner-jdbc-2.30.1.jar" | grep com/google/cloud/spanner/jdbc/JdbcDriver || echo "ERROR: Driver not found in JAR"
+            echo "Spanner JDBC driver downloaded"
           else
             echo "ERROR: Spanner JDBC driver not found"
             exit 1
@@ -111,6 +113,7 @@ jobs:
           else
             echo "SQL_CODE_STATUS=0" >> $GITHUB_ENV
             echo "No changelog file found: ${{ env.CHANGE_LOG_FILE }}"
+            exit 1
           fi
         shell: bash
 
@@ -123,6 +126,7 @@ jobs:
           else
             echo "SHOULD_RUN=false" >> $GITHUB_ENV
             echo "Skipping Liquibase update for unsupported environment: ${{ env.APP_ENV }}"
+            exit 1
           fi
         shell: bash
 
@@ -133,12 +137,12 @@ jobs:
             -v "${{ github.workspace }}:/liquibase" \
             --entrypoint=/bin/sh \
             ${{ env.LIQUIBASE_IMAGE }} \
-            -c "bash -c 'ls -l /liquibase/liquibase-lib; cat /liquibase/liquibase.properties; ls -l /liquibase/gcp-creds.json; ls -l /liquibase/sql'"
+            -c "ls -l /liquibase/liquibase-lib; cat /liquibase/liquibase.properties; ls -l /liquibase/gcp-creds.json; ls -l /liquibase/sql"
         shell: bash
 
-      - name: Debug Liquibase Script
+      - name: Debug Liquibase JAR Path
         run: |
-          docker run --rm --entrypoint=/bin/sh ${{ env.LIQUIBASE_IMAGE }} -c "head -n 1 /liquibase/liquibase; cat /liquibase/liquibase; ls -l /bin/sh; ls -l /bin/bash || true"
+          docker run --rm --entrypoint=/bin/sh ${{ env.LIQUIBASE_IMAGE }} -c "find /liquibase -name 'liquibase-core*.jar'; ls -l /liquibase/lib"
         shell: bash
 
       - name: Check Liquibase Status
@@ -150,13 +154,13 @@ jobs:
             -e GOOGLE_APPLICATION_CREDENTIALS=/liquibase/gcp-creds.json \
             --entrypoint=/bin/sh \
             ${{ env.LIQUIBASE_IMAGE }} \
-            -c "liquibase --defaultsFile=/liquibase/${{ env.LIQUIBASE_PROPERTIES }} --log-level=debug status --contexts='${{ env.APP_ENV }}' | grep 'is up to date' | wc -l")
-          echo "UPDATE_STATUS=$UPDATE_STATUS" >> $GITHUB_ENV
+            -c "java -jar /liquibase/lib/liquibase-core.jar --defaultsFile=/liquibase/${{ env.LIQUIBASE_PROPERTIES }} --log-level=debug status --contexts='${{ env.APP_ENV }}' | grep 'is up to date' | wc -l")
+          echo "UPDATE_STATUS=$UPDATE_STATUS" >> "$GITHUB_ENV"
           echo "0" > "${{ github.workspace }}/liquibase-status.txt"
           cat "${{ github.workspace }}/liquibase-status.txt"
         shell: bash
         continue-on-error: true
-      
+
       - name: Run Liquibase Commands
         id: run-liquibase-commands
         if: env.SHOULD_RUN == 'true' && env.SQL_CODE_STATUS != '0' && env.UPDATE_STATUS != '1'
@@ -166,20 +170,19 @@ jobs:
             -e GOOGLE_APPLICATION_CREDENTIALS=/liquibase/gcp-creds.json \
             --entrypoint=/bin/sh \
             ${{ env.LIQUIBASE_IMAGE }} \
-            -c "liquibase --defaultsFile=/liquibase/${{ env.LIQUIBASE_PROPERTIES }} --log-level=debug validate" || { echo "Liquibase validate failed"; exit 1; }
+            -c "java -jar /liquibase/lib/liquibase-core.jar --defaultsFile=/liquibase/${{ env.LIQUIBASE_PROPERTIES }} --log-level=debug validate" || { echo "Liquibase validate failed"; exit 1; }
           docker run --rm \
             -v "${{ github.workspace }}:/liquibase" \
             -e GOOGLE_APPLICATION_CREDENTIALS=/liquibase/gcp-creds.json \
             --entrypoint=/bin/sh \
             ${{ env.LIQUIBASE_IMAGE }} \
-            -c "liquibase --defaultsFile=/liquibase/${{ env.LIQUIBASE_PROPERTIES }} --log-level=debug tag '${{ env.APP_VERSION }}'" || { echo "Liquibase tag failed"; exit 1; }
+            -c "java -jar /liquibase/lib/liquibase-core.jar --defaultsFile=/liquibase/${{ env.LIQUIBASE_PROPERTIES }} --log-level=debug tag '${{ env.APP_VERSION }}'" || { echo "Liquibase tag failed"; exit 1; }
           docker run --rm \
             -v "${{ github.workspace }}:/liquibase" \
             -e GOOGLE_APPLICATION_CREDENTIALS=/liquibase/gcp-creds.json \
             --entrypoint=/bin/sh \
             ${{ env.LIQUIBASE_IMAGE }} \
-            -c "bash -x -c 'liquibase --defaultsFile=/liquibase/${{ env.LIQUIBASE_PROPERTIES }} --log-level=debug update --contexts='\${APP_ENV}' && echo \$? > /liquibase/liquibase-status.txt'" \
-            APP_ENV="${{ env.APP_ENV }}" || { echo "Liquibase update failed"; exit 1; }
+            -c "java -jar /liquibase/lib/liquibase-core.jar --defaultsFile=/liquibase/${{ env.LIQUIBASE_PROPERTIES }} --log-level=debug update --contexts='${{ env.APP_ENV }}' && echo \$? > /liquibase/liquibase-status.txt" || { echo "Liquibase update failed"; exit 1; }
           cat "${{ github.workspace }}/liquibase-status.txt"
         shell: bash
 
