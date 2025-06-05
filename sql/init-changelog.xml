@@ -1,27 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<databaseChangeLog
-    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
-                        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.1.xsd">
-    <changeSet id="create-databasechangelog" author="admin">
-        <sql>
-            CREATE TABLE DATABASECHANGELOG (
-                ID STRING(255) NOT NULL,
-                AUTHOR STRING(255) NOT NULL,
-                FILENAME STRING(255) NOT NULL,
-                DATEEXECUTED TIMESTAMP NOT NULL,
-                ORDEREXECUTED INT64 NOT NULL,
-                EXECTYPE STRING(10) NOT NULL,
-                MD5SUM STRING(35),
-                DESCRIPTION STRING(255),
-                COMMENTS STRING(255),
-                TAG STRING(255),
-                LIQUIBASE STRING(20),
-                CONTEXTS STRING(255),
-                LABELS STRING(255),
-                DEPLOYMENT_ID STRING(10)
-            ) PRIMARY KEY (ID, AUTHOR)
-        </sql>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.32.xsd">
+    <changeSet id="1" author="your-author" context="dev">
+        <sqlFile path="sql/changeset1.sql"/>
     </changeSet>
 </databaseChangeLog>
