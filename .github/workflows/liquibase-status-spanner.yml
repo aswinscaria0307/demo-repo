@@ -102,7 +102,7 @@ jobs:
             -v "${{ github.workspace }}:/liquibase" \
             -e GOOGLE_APPLICATION_CREDENTIALS=/liquibase/gcp-creds.json \
             --entrypoint=/bin/sh ${{ env.LIQUIBASE_IMAGE }} \
-            -c "java -jar /liquibase/lib/liquibase-core.jar \
+            -c "java -jar /liquibase/internal/lib/liquibase-core.jar \
             --defaultsFile=/liquibase/liquibase.properties \
             status --contexts='${{ env.APP_ENV }}' | grep -c 'is up to date'")
           echo "UPDATE_STATUS=$STATUS" >> $GITHUB_ENV
@@ -113,17 +113,17 @@ jobs:
           docker run --rm -v "${{ github.workspace }}:/liquibase" \
             -e GOOGLE_APPLICATION_CREDENTIALS=/liquibase/gcp-creds.json \
             --entrypoint=/bin/sh ${{ env.LIQUIBASE_IMAGE }} \
-            -c "java -jar /liquibase/lib/liquibase-core.jar --defaultsFile=/liquibase/liquibase.properties validate" || exit 1
+            -c "java -jar /liquibase/internal/lib/liquibase-core.jar --defaultsFile=/liquibase/liquibase.properties validate" || exit 1
 
           docker run --rm -v "${{ github.workspace }}:/liquibase" \
             -e GOOGLE_APPLICATION_CREDENTIALS=/liquibase/gcp-creds.json \
             --entrypoint=/bin/sh ${{ env.LIQUIBASE_IMAGE }} \
-            -c "java -jar /liquibase/lib/liquibase-core.jar --defaultsFile=/liquibase/liquibase.properties tag '${{ env.APP_VERSION }}'" || exit 1
+            -c "java -jar /liquibase/internal/lib/liquibase-core.jar --defaultsFile=/liquibase/liquibase.properties tag '${{ env.APP_VERSION }}'" || exit 1
 
           docker run --rm -v "${{ github.workspace }}:/liquibase" \
             -e GOOGLE_APPLICATION_CREDENTIALS=/liquibase/gcp-creds.json \
             --entrypoint=/bin/sh ${{ env.LIQUIBASE_IMAGE }} \
-            -c "java -jar /liquibase/lib/liquibase-core.jar --defaultsFile=/liquibase/liquibase.properties update --contexts='${{ env.APP_ENV }}'"
+            -c "java -jar /liquibase/internal/lib/liquibase-core.jar --defaultsFile=/liquibase/liquibase.properties update --contexts='${{ env.APP_ENV }}'"
 
       - name: Skip (Unsupported Env)
         if: env.SHOULD_RUN != 'true'
