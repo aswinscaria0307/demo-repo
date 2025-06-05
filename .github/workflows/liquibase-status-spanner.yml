@@ -129,7 +129,11 @@ jobs:
       - name: Debug Container Files
         if: env.SHOULD_RUN == 'true' && env.SQL_CODE_STATUS != '0'
         run: |
-          docker run --rm -v "${{ github.workspace }}:/liquibase" ${{ env.LIQUIBASE_IMAGE }} bash -c "ls -l /liquibase/liquibase-lib; cat /liquibase/liquibase.properties; ls -l /liquibase/gcp-creds.json; ls -l /liquibase/sql"
+          docker run --rm \
+            -v "${{ github.workspace }}:/liquibase" \
+            --entrypoint=/bin/sh \
+            ${{ env.LIQUIBASE_IMAGE }} \
+            -c "bash -c 'ls -l /liquibase/liquibase-lib; cat /liquibase/liquibase.properties; ls -l /liquibase/gcp-creds.json; ls -l /liquibase/sql'"
         shell: bash
 
       - name: Check Liquibase Status
