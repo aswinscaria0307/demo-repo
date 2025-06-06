@@ -18,7 +18,7 @@ on:
 
 env:
   CHANGE_LOG_FILE: sql/changelog-root.xml
-  LIQUIBASE_IMAGE: liquibase:4.17.1
+  LIQUIBASE_IMAGE: liquibase:4.23.2
   SEARCH_PATH: /liquibase,/liquibase/sql
   LIQUIBASE_PROPERTIES: liquibase.properties
 
