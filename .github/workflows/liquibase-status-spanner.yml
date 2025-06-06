@@ -18,7 +18,7 @@ on:
 
 env:
   CHANGE_LOG_FILE: sql/changelog-root.xml
-  LIQUIBASE_IMAGE: liquibase:4.23.2
+  LIQUIBASE_IMAGE: liquibase:4.29.2
   SEARCH_PATH: /liquibase,/liquibase/sql
   LIQUIBASE_PROPERTIES: liquibase.properties
 
@@ -36,11 +36,11 @@ jobs:
 
       - name: Derive Liquibase Variables
         run: |
-          echo "APP_NAME=demo-app" >> $GITHUB_ENV
-          echo "APP_VERSION=${{ inputs.app_version }}" >> $GITHUB_ENV
-          echo "COMMIT_ID=$(echo "${{ github.sha }}" | cut -c1-7)" >> $GITHUB_ENV
-          echo "APP_ENV=${{ inputs.app_env }}" >> $GITHUB_ENV
-          echo "JDBC_URL=jdbc:cloudspanner:/projects/${{ vars.GCP_PROJECT_ID }}/instances/${{ inputs.spanner_instance }}/databases/demo_liquibase" >> $GITHUB_ENV
+          echo "APP_NAME=demo-app" >> "$GITHUB_ENV"
+          echo "APP_VERSION=${{ inputs.app_version }}" >> "$GITHUB_ENV"
+          echo "COMMIT_ID=$(echo "${{ github.sha }}" | cut -c1-7)" >> "$GITHUB_ENV"
+          echo "APP_ENV=${{ inputs.app_env }}" >> "$GITHUB_ENV"
+          echo "JDBC_URL=jdbc:cloudspanner:/projects/${{ vars.GCP_PROJECT_ID }}/instances/${{ inputs.spanner_instance }}/databases/demo_liquibase" >> "$GITHUB_ENV"
 
       - name: GCP Authentication
         uses: google-github-actions/auth@v2
@@ -84,15 +84,15 @@ jobs:
 
       - name: Configure Liquibase Properties
         run: |
-          echo "liquibase.classpath=/liquibase/liquibase-lib/liquibase-spanner-4.20.0.jar:/liquibase/liquibase-lib/google-cloud-spanner-jdbc-2.30.1.jar" > liquibase.properties
-          echo "liquibase.command.url=${{ env.JDBC_URL }}?credentials=/liquibase/gcp-creds.json;lenient=true" >> liquibase.properties
-          echo "changeLogFile=${{ env.CHANGE_LOG_FILE }}" >> liquibase.properties
-          echo "liquibase.searchPath=${{ env.SEARCH_PATH }}" >> liquibase.properties
-          cat liquibase.properties
+          echo "liquibase.classpath=/liquibase/liquibase-lib/liquibase-spanner-4.20.0.jar:/liquibase/liquibase-lib/google-cloud-spanner-jdbc-2.30.1.jar" > "${{ env.LIQUIBASE_PROPERTIES }}"
+          echo "liquibase.command.url=${{ env.JDBC_URL }}?credentials=/liquibase/gcp-creds.json;lenient=true" >> "${{ env.LIQUIBASE_PROPERTIES }}"
+          echo "changeLogFile=${{ env.CHANGE_LOG_FILE }}" >> "${{ env.LIQUIBASE_PROPERTIES }}"
+          echo "liquibase.searchPath=${{ env.SEARCH_PATH }}" >> "${{ env.LIQUIBASE_PROPERTIES }}"
+          cat "${{ env.LIQUIBASE_PROPERTIES }}"
 
       - name: Debug Liquibase JAR Path
         run: |
-          docker run --rm --entrypoint=/bin/sh ${{ env.LIQUIBASE_IMAGE }} -c "find / -name 'liquibase-core*.jar' 2>/dev/null; ls -l /app || true"
+          docker run --rm --entrypoint=/bin/sh ${{ env.LIQUIBASE_IMAGE }} -c "find / -name 'liquibase-core*.jar' 2>/dev/null; ls -l /liquibase/lib /liquibase/internal/lib || true"
 
       - name: Check SQL Code Existence
         id: sql-check
@@ -124,46 +124,45 @@ jobs:
             -v "${{ github.workspace }}:/liquibase" \
             --entrypoint=/bin/sh \
             ${{ env.LIQUIBASE_IMAGE }} \
-            -c "ls -l /liquibase/liquibase-lib; cat /liquibase/liquibase.properties; ls -l /liquibase/gcp-creds.json; ls -l /liquibase/sql"
-      
+            -c "ls -l /liquibase/liquibase-lib; cat /liquibase/${{ env.LIQUIBASE_PROPERTIES }}; ls -l /liquibase/gcp-creds.json; ls -l /liquibase/sql"
+
       - name: Check Liquibase Status
         id: liquibase-status
         if: env.SHOULD_RUN == 'true' && env.SQL_CODE_FOUND == 'true'
         run: |
           STATUS=$(docker run --rm \
             -v "${{ github.workspace }}:/liquibase" \
-            -e GOOGLE_APPLICATION_CREDENTIALS=/liquibase/gcp-creds.json" \
+            -e GOOGLE_APPLICATION_CREDENTIALS=/liquibase/gcp-creds.json \
             --entrypoint=/bin/sh \
             ${{ env.LIQUIBASE_IMAGE }} \
-            -c "java -jar /liquibase/lib/liquibase-core.jar --defaultsFile=/liquibase/liquibase.properties --log-level=debug status --contexts='${{ env.APP_ENV }}' | grep -c 'is up to date'")
+            -c "java -jar /liquibase/internal/lib/liquibase-core.jar --defaultsFile=/liquibase/${{ env.LIQUIBASE_PROPERTIES }} --log-level=debug status --contexts='${{ env.APP_ENV }}' | grep -c 'is up to date'")
           echo "UPDATE_STATUS=$STATUS" >> "$GITHUB_ENV"
           echo "0" > "${{ github.workspace }}/liquibase-status.txt"
           cat "${{ github.workspace }}/liquibase-status.txt"
-
         continue-on-error: true
 
       - name: Run Liquibase Commands
         id: run-liquibase
-        if: env.SHOULD_RUN == 'true' && env.SQL_CODE_FOUND == 'true' && env.UPDATED_STATUS != '1'
+        if: env.SHOULD_RUN == 'true' && env.SQL_CODE_FOUND == 'true' && env.UPDATE_STATUS != '1'
         run: |
           docker run --rm \
             -v "${{ github.workspace }}:/liquibase" \
             -e GOOGLE_APPLICATION_CREDENTIALS=/liquibase/gcp-creds.json \
             --entrypoint=/bin/sh \
             ${{ env.LIQUIBASE_IMAGE }} \
-            -c "java -jar /liquibase/lib/liquibase-core.jar --defaultsFile=/liquibase/liquibase.properties --log-level=debug validate" || { echo "Liquibase validate failed"; exit 1; }
+            -c "java -jar /liquibase/internal/lib/liquibase-core.jar --defaultsFile=/liquibase/${{ env.LIQUIBASE_PROPERTIES }} --log-level=debug validate" || { echo "Liquibase validate failed"; exit 1; }
           docker run --rm \
             -v "${{ github.workspace }}:/liquibase" \
             -e GOOGLE_APPLICATION_CREDENTIALS=/liquibase/gcp-creds.json \
             --entrypoint=/bin/sh \
             ${{ env.LIQUIBASE_IMAGE }} \
-            -c "java -jar /liquibase/lib/liquibase-core.jar --defaultsFile=/liquibase/liquibase.properties --log-level=debug tag '${{ env.APP_VERSION }}'" || { echo "Liquibase tag failed"; exit 1; }
+            -c "java -jar /liquibase/internal/lib/liquibase-core.jar --defaultsFile=/liquibase/${{ env.LIQUIBASE_PROPERTIES }} --log-level=debug tag '${{ env.APP_VERSION }}'" || { echo "Liquibase tag failed"; exit 1; }
           docker run --rm \
             -v "${{ github.workspace }}:/liquibase" \
             -e GOOGLE_APPLICATION_CREDENTIALS=/liquibase/gcp-creds.json \
             --entrypoint=/bin/sh \
             ${{ env.LIQUIBASE_IMAGE }} \
-            -c "java -jar /liquibase/lib/liquibase-core.jar --defaultsFile=/liquibase/liquibase.properties --log-level=debug update --contexts='${{ env.APP_ENV }}' && echo \$? > /liquibase/liquibase-status.txt" || { echo "Liquibase update failed"; exit 1; }
+            -c "java -jar /liquibase/internal/lib/liquibase-core.jar --defaultsFile=/liquibase/${{ env.LIQUIBASE_PROPERTIES }} --log-level=debug update --contexts='${{ env.APP_ENV }}' && echo \$? > /liquibase/liquibase-status.txt" || { echo "Liquibase update failed"; exit 1; }
           cat "${{ github.workspace }}/liquibase-status.txt"
 
       - name: Skip (Unsupported Env)
