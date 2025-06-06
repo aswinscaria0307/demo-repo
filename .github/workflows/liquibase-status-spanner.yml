@@ -18,8 +18,9 @@ on:
 
 env:
   CHANGE_LOG_FILE: sql/changelog-root.xml
-  LIQUIBASE_IMAGE: liquibase:4.29.2
+  LIQUIBASE_IMAGE: liquibase:4.17.1
   SEARCH_PATH: /liquibase,/liquibase/sql
+  LIQUIBASE_PROPERTIES: liquibase.properties
 
 jobs:
   liquibase-update-tag:
@@ -134,7 +135,7 @@ jobs:
             -e GOOGLE_APPLICATION_CREDENTIALS=/liquibase/gcp-creds.json" \
             --entrypoint=/bin/sh \
             ${{ env.LIQUIBASE_IMAGE }} \
-            -c "java -jar /app/liquibase-core.jar --defaultsFile=/liquibase/liquibase.properties --log-level=debug status --contexts='${{ env.APP_ENV }}' | grep -c 'is up to date'")
+            -c "java -jar /liquibase/lib/liquibase-core.jar --defaultsFile=/liquibase/liquibase.properties --log-level=debug status --contexts='${{ env.APP_ENV }}' | grep -c 'is up to date'")
           echo "UPDATE_STATUS=$STATUS" >> "$GITHUB_ENV"
           echo "0" > "${{ github.workspace }}/liquibase-status.txt"
           cat "${{ github.workspace }}/liquibase-status.txt"
@@ -150,19 +151,19 @@ jobs:
             -e GOOGLE_APPLICATION_CREDENTIALS=/liquibase/gcp-creds.json \
             --entrypoint=/bin/sh \
             ${{ env.LIQUIBASE_IMAGE }} \
-            -c "java -jar /app/liquibase-core.jar --defaultsFile=/liquibase/liquibase.properties --log-level=debug validate" || { echo "Liquibase validate failed"; exit 1; }
+            -c "java -jar /liquibase/lib/liquibase-core.jar --defaultsFile=/liquibase/liquibase.properties --log-level=debug validate" || { echo "Liquibase validate failed"; exit 1; }
           docker run --rm \
             -v "${{ github.workspace }}:/liquibase" \
             -e GOOGLE_APPLICATION_CREDENTIALS=/liquibase/gcp-creds.json \
             --entrypoint=/bin/sh \
             ${{ env.LIQUIBASE_IMAGE }} \
-            -c "java -jar /app/liquibase-core.jar --defaultsFile=/liquibase/liquibase.properties --log-level=debug tag '${{ env.APP_VERSION }}'" || { echo "Liquibase tag failed"; exit 1; }
+            -c "java -jar /liquibase/lib/liquibase-core.jar --defaultsFile=/liquibase/liquibase.properties --log-level=debug tag '${{ env.APP_VERSION }}'" || { echo "Liquibase tag failed"; exit 1; }
           docker run --rm \
             -v "${{ github.workspace }}:/liquibase" \
             -e GOOGLE_APPLICATION_CREDENTIALS=/liquibase/gcp-creds.json \
             --entrypoint=/bin/sh \
             ${{ env.LIQUIBASE_IMAGE }} \
-            -c "java -jar /app/liquibase-core.jar --defaultsFile=/liquibase/liquibase.properties --log-level=debug update --contexts='${{ env.APP_ENV }}' && echo \$? > /liquibase/liquibase-status.txt" || { echo "Liquibase update failed"; exit 1; }
+            -c "java -jar /liquibase/lib/liquibase-core.jar --defaultsFile=/liquibase/liquibase.properties --log-level=debug update --contexts='${{ env.APP_ENV }}' && echo \$? > /liquibase/liquibase-status.txt" || { echo "Liquibase update failed"; exit 1; }
           cat "${{ github.workspace }}/liquibase-status.txt"
 
       - name: Skip (Unsupported Env)
