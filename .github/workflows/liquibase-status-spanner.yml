@@ -18,18 +18,16 @@ on:
 
 env:
   CHANGE_LOG_FILE: sql/changelog-root.xml
-  LIQUIBASE_IMAGE: liquibase:4.29.2
+  LIQUIBASE_IMAGE: liquibase:4.29.0
   SEARCH_PATH: /liquibase/workspace,/liquibase/workspace/sql
-  LIQUIBASE_PROPERTIES: liquibase.properties
+  LIQUIBASE_CONFIG: liquibase.properties
 
 jobs:
-  liquibase-update-tag:
+  liquibase-spanner-update:
     runs-on: ubuntu-22.04
     timeout-minutes: 30
     permissions:
       contents: read
-      id-token: write
-
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -49,7 +47,7 @@ jobs:
           export_environment_variables: true
           create_credentials_file: true
 
-      - name: Copy Credentials to Workspace
+      - name: Copy Credentials
         run: cp "$GOOGLE_APPLICATION_CREDENTIALS" "${{ github.workspace }}/gcp-creds.json"
 
       - name: Set up Java
@@ -72,6 +70,30 @@ jobs:
               <groupId>com.example</groupId>
               <artifactId>liquibase-spanner</artifactId>
               <version>1.0-SNAPSHOT</version>
+              <dependencyManagement>
+                  <dependencies>
+                      <dependency>
+                          <groupId>com.google.api</groupId>
+                          <artifactId>gax</artifactId>
+                          <version>2.67.0</version>
+                      </dependency>
+                      <dependency>
+                          <groupId>com.google.api</groupId>
+                          <artifactId>gax-grpc</artifactId>
+                          <version>2.67.0</version>
+                      </dependency>
+                      <dependency>
+                          <groupId>com.google.api</groupId>
+                          <artifactId>gax-httpjson</artifactId>
+                          <version>2.67.0</version>
+                      </dependency>
+                      <dependency>
+                          <groupId>com.google.cloud</groupId>
+                          <artifactId>google-cloud-spanner</artifactId>
+                          <version>6.93.0</version>
+                      </dependency>
+                  </dependencies>
+              </dependencyManagement>
               <dependencies>
                   <dependency>
                       <groupId>com.google.cloud</groupId>
@@ -103,25 +125,25 @@ jobs:
                 for jar in /liquibase/workspace/liquibase-lib/*.jar; do \
                   [ -f \"\$jar\" ] && CLASSPATH=\"\$CLASSPATH:\$jar\"; \
                 done; \
-                echo \"classpath=\$CLASSPATH\" > /liquibase/workspace/${{ env.LIQUIBASE_PROPERTIES }}; \
-                echo 'driver=com.google.cloud.spanner.jdbc.JdbcDriver' >> /liquibase/workspace/${{ env.LIQUIBASE_PROPERTIES }}; \
-                echo 'url=${{ env.JDBC_URL }}?credentials=/liquibase/workspace/gcp-creds.json;lenient=true' >> /liquibase/workspace/${{ env.LIQUIBASE_PROPERTIES }}; \
-                echo 'changeLogFile=${{ env.CHANGE_LOG_FILE }}' >> /liquibase/workspace/${{ env.LIQUIBASE_PROPERTIES }}; \
-                echo 'searchPath=${{ env.SEARCH_PATH }}' >> /liquibase/workspace/${{ env.LIQUIBASE_PROPERTIES }}; \
-                cat /liquibase/workspace/${{ env.LIQUIBASE_PROPERTIES }}"
-          cat "${{ github.workspace }}/${{ env.LIQUIBASE_PROPERTIES }}"
+                echo \"classpath=\$CLASSPATH\" > /liquibase/workspace/${{ env.LIQUIBASE_CONFIG }}; \
+                echo 'driver=com.google.cloud.spanner.jdbc.JdbcDriver' >> /liquibase/workspace/${{ env.LIQUIBASE_CONFIG }}; \
+                echo 'url=${{ env.JDBC_URL }}?credentials=/liquibase/workspace/gcp-creds.json;lenient=true' >> /liquibase/workspace/${{ env.LIQUIBASE_CONFIG }}; \
+                echo 'changeLogFile=${{ env.CHANGE_LOG_FILE }}' >> /liquibase/workspace/${{ env.LIQUIBASE_CONFIG }}; \
+                echo 'searchPath=${{ env.SEARCH_PATH }}' >> /liquibase/workspace/${{ env.LIQUIBASE_CONFIG }}; \
+                cat /liquibase/workspace/${{ env.LIQUIBASE_CONFIG }}"
+          cat "${{ github.workspace }}/${{ env.LIQUIBASE_CONFIG }}"
 
       - name: Debug Liquibase JAR Path
         run: |
           docker run --rm --entrypoint=/bin/sh ${{ env.LIQUIBASE_IMAGE }} -c "find / -name 'liquibase-core*.jar' 2>/dev/null; ls -l /liquibase/internal/lib; java -version; whoami"
 
-      - name: Debug Driver Dependencies
+      - name: Debug Dependency Versions
         run: |
           docker run --rm \
             -v "${{ github.workspace }}:/liquibase/workspace" \
             --entrypoint=/bin/sh \
             ${{ env.LIQUIBASE_IMAGE }} \
-            -c "ls -l /liquibase/workspace/liquibase-lib; java -cp \$(find /liquibase/workspace/liquibase-lib -name '*.jar' | tr '\n' ':') com.google.cloud.spanner.jdbc.JdbcDriver --version || echo 'Driver class check failed'"
+            -c "ls -l /liquibase/workspace/liquibase-lib | grep -E 'gax-|google-cloud-spanner'; echo 'Classpath contents:'; cat /liquibase/workspace/${{ env.LIQUIBASE_CONFIG }}"
 
       - name: Check SQL Code Existence
         id: sql-check
@@ -147,13 +169,13 @@ jobs:
           fi
 
       - name: Debug Container Files
-        if: env.SHOULD_RUN == 'true' && env.SQL_CODE_FOUND == 'true'
+        if: env.SQL_CODE_FOUND == 'true'
         run: |
           docker run --rm \
             -v "${{ github.workspace }}:/liquibase/workspace" \
             --entrypoint=/bin/sh \
             ${{ env.LIQUIBASE_IMAGE }} \
-            -c "ls -l /liquibase/workspace/liquibase-lib; cat /liquibase/workspace/${{ env.LIQUIBASE_PROPERTIES }}; ls -l /liquibase/workspace/gcp-creds.json; ls -l /liquibase/workspace/sql; ls -l /liquibase/internal/lib/liquibase-core.jar || true"
+            -c "ls -l /liquibase/workspace/liquibase-lib; cat /liquibase/workspace/${{ env.LIQUIBASE_CONFIG }}; ls -l /liquibase/workspace/gcp-creds.json; ls -l /liquibase/workspace/sql; ls -l /liquibase/internal/lib/liquibase-core.jar || true"
 
       - name: Check Liquibase Status
         id: liquibase-status
@@ -163,7 +185,7 @@ jobs:
             -v "${{ github.workspace }}:/liquibase/workspace" \
             -e GOOGLE_APPLICATION_CREDENTIALS=/liquibase/workspace/gcp-creds.json \
             ${{ env.LIQUIBASE_IMAGE }} \
-            status --defaultsFile=/liquibase/workspace/${{ env.LIQUIBASE_PROPERTIES }} --log-level=debug --contexts=${{ env.APP_ENV }} | grep -c 'is up to date')
+            status --defaultsFile=/liquibase/workspace/${{ env.LIQUIBASE_CONFIG }} --log-level=debug --contexts=${{ env.APP_ENV }} | grep -c 'is up to date')
           echo "UPDATE_STATUS=$STATUS" >> "$GITHUB_ENV"
           echo "0" > "${{ github.workspace }}/liquibase-status.txt"
           cat "${{ github.workspace }}/liquibase-status.txt"
@@ -177,27 +199,19 @@ jobs:
             -v "${{ github.workspace }}:/liquibase/workspace" \
             -e GOOGLE_APPLICATION_CREDENTIALS=/liquibase/workspace/gcp-creds.json \
             ${{ env.LIQUIBASE_IMAGE }} \
-            validate --defaultsFile=/liquibase/workspace/${{ env.LIQUIBASE_PROPERTIES }} --log-level=debug || { echo "Liquibase validate failed"; exit 1; }
+            validate --defaultsFile=/liquibase/workspace/${{ env.LIQUIBASE_CONFIG }} --log-level=debug || { echo "Liquibase validate failed"; exit 1; }
           docker run --rm \
             -v "${{ github.workspace }}:/liquibase/workspace" \
             -e GOOGLE_APPLICATION_CREDENTIALS=/liquibase/workspace/gcp-creds.json \
             ${{ env.LIQUIBASE_IMAGE }} \
-            tag --defaultsFile=/liquibase/workspace/${{ env.LIQUIBASE_PROPERTIES }} --log-level=debug "${{ env.APP_VERSION }}" || { echo "Liquibase tag failed"; exit 1; }
+            tag --defaultsFile=/liquibase/workspace/${{ env.LIQUIBASE_CONFIG }} --log-level=debug "${{ env.APP_VERSION }}" || { echo "Liquibase tag failed"; exit 1; }
           docker run --rm \
             -v "${{ github.workspace }}:/liquibase/workspace" \
             -e GOOGLE_APPLICATION_CREDENTIALS=/liquibase/workspace/gcp-creds.json \
             ${{ env.LIQUIBASE_IMAGE }} \
-            update --defaultsFile=/liquibase/workspace/${{ env.LIQUIBASE_PROPERTIES }} --log-level=debug --contexts=${{ env.APP_ENV }} && echo $? > "${{ github.workspace }}/liquibase-status.txt" || { echo "Liquibase update failed"; exit 1; }
+            update --defaultsFile=/liquibase/workspace/${{ env.LIQUIBASE_CONFIG }} --log-level=debug --contexts=${{ env.APP_ENV }} && echo $? > "${{ github.workspace }}/liquibase-status.txt" || { echo "Liquibase update failed"; exit 1; }
           cat "${{ github.workspace }}/liquibase-status.txt"
 
-      - name: Verify Database Changes
-        if: env.SHOULD_RUN == 'true' && env.SQL_CODE_FOUND == 'true' && env.UPDATE_STATUS != '1'
-        run: |
-          docker run --rm \
-            -v "${{ github.workspace }}:/liquibase/workspace" \
-            -e GOOGLE_APPLICATION_CREDENTIALS=/liquibase/workspace/gcp-creds.json \
-            ${{ env.LIQUIBASE_IMAGE }} \
-            history --defaultsFile=/liquibase/workspace/${{ env.LIQUIBASE_PROPERTIES }} --log-level=debug
 
       - name: Skip (Unsupported Env)
         if: env.SHOULD_RUN != 'true'
