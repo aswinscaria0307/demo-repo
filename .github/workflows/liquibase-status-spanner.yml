@@ -95,16 +95,21 @@ jobs:
 
       - name: Configure Liquibase Properties
         run: |
-          CLASSPATH="/liquibase/internal/lib/liquibase-core.jar"
-          for jar in /liquibase/workspace/liquibase-lib/*.jar; do
-            CLASSPATH="$CLASSPATH:$jar"
-          done
-          echo "classpath=$CLASSPATH" > "${{ env.LIQUIBASE_PROPERTIES }}"
-          echo "driver=com.google.cloud.spanner.jdbc.JdbcDriver" >> "${{ env.LIQUIBASE_PROPERTIES }}"
-          echo "url=${{ env.JDBC_URL }}?credentials=/liquibase/workspace/gcp-creds.json;lenient=true" >> "${{ env.LIQUIBASE_PROPERTIES }}"
-          echo "changeLogFile=${{ env.CHANGE_LOG_FILE }}" >> "${{ env.LIQUIBASE_PROPERTIES }}"
-          echo "searchPath=${{ env.SEARCH_PATH }}" >> "${{ env.LIQUIBASE_PROPERTIES }}"
-          cat "${{ env.LIQUIBASE_PROPERTIES }}"
+          docker run --rm \
+            -v "${{ github.workspace }}:/liquibase/workspace" \
+            --entrypoint=/bin/sh \
+            ${{ env.LIQUIBASE_IMAGE }} \
+            -c "CLASSPATH='/liquibase/internal/lib/liquibase-core.jar'; \
+                for jar in /liquibase/workspace/liquibase-lib/*.jar; do \
+                  [ -f \"\$jar\" ] && CLASSPATH=\"\$CLASSPATH:\$jar\"; \
+                done; \
+                echo \"classpath=\$CLASSPATH\" > /liquibase/workspace/${{ env.LIQUIBASE_PROPERTIES }}; \
+                echo 'driver=com.google.cloud.spanner.jdbc.JdbcDriver' >> /liquibase/workspace/${{ env.LIQUIBASE_PROPERTIES }}; \
+                echo 'url=${{ env.JDBC_URL }}?credentials=/liquibase/workspace/gcp-creds.json;lenient=true' >> /liquibase/workspace/${{ env.LIQUIBASE_PROPERTIES }}; \
+                echo 'changeLogFile=${{ env.CHANGE_LOG_FILE }}' >> /liquibase/workspace/${{ env.LIQUIBASE_PROPERTIES }}; \
+                echo 'searchPath=${{ env.SEARCH_PATH }}' >> /liquibase/workspace/${{ env.LIQUIBASE_PROPERTIES }}; \
+                cat /liquibase/workspace/${{ env.LIQUIBASE_PROPERTIES }}"
+          cat "${{ github.workspace }}/${{ env.LIQUIBASE_PROPERTIES }}"
 
       - name: Debug Liquibase JAR Path
         run: |
@@ -116,7 +121,7 @@ jobs:
             -v "${{ github.workspace }}:/liquibase/workspace" \
             --entrypoint=/bin/sh \
             ${{ env.LIQUIBASE_IMAGE }} \
-            -c "ls -l /liquibase/workspace/liquibase-lib; java -cp /liquibase/workspace/liquibase-lib/* com.google.cloud.spanner.jdbc.JdbcDriver --version || echo 'Driver class check failed'"
+            -c "ls -l /liquibase/workspace/liquibase-lib; java -cp \$(find /liquibase/workspace/liquibase-lib -name '*.jar' | tr '\n' ':') com.google.cloud.spanner.jdbc.JdbcDriver --version || echo 'Driver class check failed'"
 
       - name: Check SQL Code Existence
         id: sql-check
@@ -166,7 +171,7 @@ jobs:
 
       - name: Run Liquibase Commands
         id: run-liquibase
-        if: env.SHOULD_RUN == 'true' && env.SQL_CODE_FOUND == 'true' && env.UPDATE_STATUS != '1'
+        if: env.SHOULD_RUN == 'true' && env.SQL_CODE_FOUND == 'true'
         run: |
           docker run --rm \
             -v "${{ github.workspace }}:/liquibase/workspace" \
@@ -184,6 +189,15 @@ jobs:
             ${{ env.LIQUIBASE_IMAGE }} \
             update --defaultsFile=/liquibase/workspace/${{ env.LIQUIBASE_PROPERTIES }} --log-level=debug --contexts=${{ env.APP_ENV }} && echo $? > "${{ github.workspace }}/liquibase-status.txt" || { echo "Liquibase update failed"; exit 1; }
           cat "${{ github.workspace }}/liquibase-status.txt"
+
+      - name: Verify Database Changes
+        if: env.SHOULD_RUN == 'true' && env.SQL_CODE_FOUND == 'true' && env.UPDATE_STATUS != '1'
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/liquibase/workspace" \
+            -e GOOGLE_APPLICATION_CREDENTIALS=/liquibase/workspace/gcp-creds.json \
+            ${{ env.LIQUIBASE_IMAGE }} \
+            history --defaultsFile=/liquibase/workspace/${{ env.LIQUIBASE_PROPERTIES }} --log-level=debug
 
       - name: Skip (Unsupported Env)
         if: env.SHOULD_RUN != 'true'
