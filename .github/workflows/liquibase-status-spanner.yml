@@ -85,6 +85,7 @@ jobs:
       - name: Configure Liquibase Properties
         run: |
           echo "classpath=/liquibase/internal/lib/liquibase-core.jar:/liquibase/workspace/liquibase-lib/liquibase-spanner-4.20.0.jar:/liquibase/workspace/liquibase-lib/google-cloud-spanner-jdbc-2.30.1.jar" > "${{ env.LIQUIBASE_PROPERTIES }}"
+          echo "driver=com.google.cloud.spanner.jdbc.JdbcDriver" >> "${{ env.LIQUIBASE_PROPERTIES }}"
           echo "url=${{ env.JDBC_URL }}?credentials=/liquibase/workspace/gcp-creds.json;lenient=true" >> "${{ env.LIQUIBASE_PROPERTIES }}"
           echo "changeLogFile=${{ env.CHANGE_LOG_FILE }}" >> "${{ env.LIQUIBASE_PROPERTIES }}"
           echo "searchPath=${{ env.SEARCH_PATH }}" >> "${{ env.LIQUIBASE_PROPERTIES }}"
@@ -93,6 +94,14 @@ jobs:
       - name: Debug Liquibase JAR Path
         run: |
           docker run --rm --entrypoint=/bin/sh ${{ env.LIQUIBASE_IMAGE }} -c "find / -name 'liquibase-core*.jar' 2>/dev/null; ls -l /liquibase/internal/lib; java -version; whoami"
+
+      - name: Debug Driver Class
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/liquibase/workspace" \
+            --entrypoint=/bin/sh \
+            ${{ env.LIQUIBASE_IMAGE }} \
+            -c "java -cp /liquibase/workspace/liquibase-lib/google-cloud-spanner-jdbc-2.30.1.jar com.google.cloud.spanner.jdbc.JdbcDriver --version || echo 'Driver class check failed'"
 
       - name: Check SQL Code Existence
         id: sql-check
