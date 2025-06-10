@@ -40,7 +40,7 @@ jobs:
           echo "APP_VERSION=${{ inputs.app_version }}" >> "$GITHUB_ENV"
           echo "COMMIT_ID=$(echo "${{ github.sha }}" | cut -c1-7)" >> "$GITHUB_ENV"
           echo "APP_ENV=${{ inputs.app_env }}" >> "$GITHUB_ENV"
-          echo "JDBC_URL=jdbc:cloudspanner:/projects/${{ vars.GCP_PROJECT_ID }}/instances/${{ inputs.spanner_instance }}/databases/demo_liquibase" >> "$GITHUB_ENV"
+          echo "JDBC_URL=jdbc:cloudspanner:/projects/${{ vars.GCP_PROJECT_ID }}/instances/${{ inputs.spanner_instance }}/databases/demo_liquibase_spanner" >> "$GITHUB_ENV"
 
       - name: GCP Authentication
         uses: google-github-actions/auth@v2
@@ -61,30 +61,45 @@ jobs:
       - name: Install Maven
         run: sudo apt-get update && sudo apt-get install -y maven
 
-      - name: Download Liquibase Spanner Extension
+      - name: Create Temporary POM for Dependencies
+        run: |
+          cat <<EOF > pom.xml
+          <?xml version="1.0" encoding="UTF-8"?>
+          <project xmlns="http://maven.apache.org/POM/4.0.0"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+              <modelVersion>4.0.0</modelVersion>
+              <groupId>com.example</groupId>
+              <artifactId>liquibase-spanner</artifactId>
+              <version>1.0-SNAPSHOT</version>
+              <dependencies>
+                  <dependency>
+                      <groupId>com.google.cloud</groupId>
+                      <artifactId>google-cloud-spanner-jdbc</artifactId>
+                      <version>2.30.1</version>
+                  </dependency>
+                  <dependency>
+                      <groupId>com.google.cloudspannerecosystem</groupId>
+                      <artifactId>liquibase-spanner</artifactId>
+                      <version>4.20.0</version>
+                  </dependency>
+              </dependencies>
+          </project>
+          EOF
+
+      - name: Download Dependencies
         run: |
           mkdir -p liquibase-lib
-          mvn dependency:copy -Dartifact=com.google.cloudspannerecosystem:liquibase-spanner:4.20.0:jar -DoutputDirectory=liquibase-lib
-          if [ -f "liquibase-lib/liquibase-spanner-4.20.0.jar" ]; then
-            echo "Liquibase Spanner extension downloaded"
-          else
-            echo "ERROR: Liquibase Spanner extension not found"
-            exit 1
-          fi
-
-      - name: Download Spanner JDBC Driver
-        run: |
-          mvn dependency:copy -Dartifact=com.google.cloud:google-cloud-spanner-jdbc:2.30.1:jar -DoutputDirectory=liquibase-lib
-          if [ -f "liquibase-lib/google-cloud-spanner-jdbc-2.30.1.jar" ]; then
-            echo "Spanner JDBC driver downloaded"
-          else
-            echo "ERROR: Spanner JDBC driver not found"
-            exit 1
-          fi
+          mvn dependency:copy-dependencies -DoutputDirectory=liquibase-lib
+          ls -l liquibase-lib
 
       - name: Configure Liquibase Properties
         run: |
-          echo "classpath=/liquibase/internal/lib/liquibase-core.jar:/liquibase/workspace/liquibase-lib/liquibase-spanner-4.20.0.jar:/liquibase/workspace/liquibase-lib/google-cloud-spanner-jdbc-2.30.1.jar" > "${{ env.LIQUIBASE_PROPERTIES }}"
+          CLASSPATH="/liquibase/internal/lib/liquibase-core.jar"
+          for jar in /liquibase/workspace/liquibase-lib/*.jar; do
+            CLASSPATH="$CLASSPATH:$jar"
+          done
+          echo "classpath=$CLASSPATH" > "${{ env.LIQUIBASE_PROPERTIES }}"
           echo "driver=com.google.cloud.spanner.jdbc.JdbcDriver" >> "${{ env.LIQUIBASE_PROPERTIES }}"
           echo "url=${{ env.JDBC_URL }}?credentials=/liquibase/workspace/gcp-creds.json;lenient=true" >> "${{ env.LIQUIBASE_PROPERTIES }}"
           echo "changeLogFile=${{ env.CHANGE_LOG_FILE }}" >> "${{ env.LIQUIBASE_PROPERTIES }}"
@@ -95,13 +110,13 @@ jobs:
         run: |
           docker run --rm --entrypoint=/bin/sh ${{ env.LIQUIBASE_IMAGE }} -c "find / -name 'liquibase-core*.jar' 2>/dev/null; ls -l /liquibase/internal/lib; java -version; whoami"
 
-      - name: Debug Driver Class
+      - name: Debug Driver Dependencies
         run: |
           docker run --rm \
             -v "${{ github.workspace }}:/liquibase/workspace" \
             --entrypoint=/bin/sh \
             ${{ env.LIQUIBASE_IMAGE }} \
-            -c "java -cp /liquibase/workspace/liquibase-lib/google-cloud-spanner-jdbc-2.30.1.jar com.google.cloud.spanner.jdbc.JdbcDriver --version || echo 'Driver class check failed'"
+            -c "ls -l /liquibase/workspace/liquibase-lib; java -cp /liquibase/workspace/liquibase-lib/* com.google.cloud.spanner.jdbc.JdbcDriver --version || echo 'Driver class check failed'"
 
       - name: Check SQL Code Existence
         id: sql-check
@@ -167,7 +182,7 @@ jobs:
             -v "${{ github.workspace }}:/liquibase/workspace" \
             -e GOOGLE_APPLICATION_CREDENTIALS=/liquibase/workspace/gcp-creds.json \
             ${{ env.LIQUIBASE_IMAGE }} \
-            update --defaultsFile=/liquibase/workspace/${{ env.LIQUIBASE_PROPERTIES }} --log-level=debug --contexts=${{ env.APP_ENV }} && echo $? > /liquibase/workspace/liquibase-status.txt || { echo "Liquibase update failed"; exit 1; }
+            update --defaultsFile=/liquibase/workspace/${{ env.LIQUIBASE_PROPERTIES }} --log-level=debug --contexts=${{ env.APP_ENV }} && echo $? > "${{ github.workspace }}/liquibase-status.txt" || { echo "Liquibase update failed"; exit 1; }
           cat "${{ github.workspace }}/liquibase-status.txt"
 
       - name: Skip (Unsupported Env)
